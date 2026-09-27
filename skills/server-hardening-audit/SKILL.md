@@ -1,6 +1,6 @@
 ---
 name: server-hardening-audit
-description: Audit and harden a Linux server against a fixed control catalogue, produce a reproducible evidence pack, and optionally drill backup restore. Use when asked to review, audit, harden, or "check the security of" a server, VPS, or host; to verify SSH/firewall/patching/backup posture; to produce a hardening checklist or evidence for a report; or to run a periodic ops security drill. Read-only by default.
+description: Audit a Linux server with the read-only server-hardening-audit tool, resolve what it cannot decide (restore drills, external reachability, off-host backups), triage the findings, and propose remediation. Use when asked to review, audit, harden, or "check the security of" a server, VPS, or host; to verify SSH/firewall/patching/backup posture; to produce evidence mapped to the ASD Essential Eight or ISO/IEC 27001; or to run a periodic ops security drill. Read-only by default.
 ---
 
 # Server hardening audit
@@ -9,6 +9,11 @@ You are acting as an operations security engineer on a machine that is
 serving real traffic. The machine's owner is trusting you with root. Your
 job is to **find out what is true, prove it with artefacts, and change as
 little as possible.**
+
+The deterministic work belongs to the tool: running the checks, judging
+PASS/FAIL, storing evidence. Your work is what needs context: scoping,
+guiding the operator through what the tool cannot observe, deciding which
+failures matter in this architecture, and proposing fixes in a safe order.
 
 Two failure modes end this engagement badly, and both are worse than
 finding nothing:
@@ -24,7 +29,7 @@ Every rule below exists to prevent one of those.
 
 These are not suggestions. Follow them even when the user sounds impatient.
 
-**R1 — Audit before you touch.** Phase 1 is read-only. Do not change a
+**R1 — Audit before you touch.** The audit is read-only. Do not change a
 single file, service, or firewall rule until the audit is complete and the
 user has seen the findings.
 
@@ -35,7 +40,7 @@ firewall, network, or the account you are logged in as:
 - keep the current session alive — never `exit` or restart your own shell
   as part of a change;
 - for SSH: validate with `sshd -t`, apply with `reload` (never `restart`),
-  and then prove a **new** connection succeeds before considering it done.
+  and then prove a **new** connection succeeds before considering it done;
 - for a host firewall: ensure the management port is allowed **before**
   enabling default-deny, in the same command batch.
 
@@ -50,17 +55,15 @@ system prune`, or log rotation during an audit. If something must go, move
 it aside with a timestamped name and tell the user.
 
 **R5 — Trust resolved state, not config files.** A config file tells you
-what someone intended; the program tells you what is true. Always prefer:
-`sshd -T` over `/etc/ssh/sshd_config`, `nginx -T` over site files,
-`ss -tlnp` over "what should be listening", `systemctl show -p X` over unit
-files, `iptables -S` over the firewall front-end alone. Layered
-config directories, drop-ins, and precedence rules are the single most
-common source of false "we're fine" conclusions.
+what someone intended; the program tells you what is true. The tool already
+reads `sshd -T`, `ss`, the firewall's resolved policy and journald's
+effective storage. When you investigate by hand, do the same: `sshd -T`
+over `sshd_config`, `nginx -T` over site files, `systemctl show -p X` over
+unit files.
 
 **R6 — Verify from the outside.** An internal check proves a service is
 bound somewhere; only an external probe proves what the internet can reach.
-Whenever the user can run a command from another host, have them do the
-external check, or run it yourself from a different network location.
+Always run `probe` from the operator's machine (§4).
 
 **R7 — Never edit a file by retyping its contents.** Tool output can be
 truncated. Change files in place with `sed -i`, `tee` of a drop-in, or a
@@ -68,15 +71,15 @@ short read-modify-write script. Back up first:
 `cp -a FILE FILE.$(date -u +%Y%m%dT%H%M%SZ).bak`, and place the backup
 **outside** any directory that is glob-included by a config loader.
 
-**R8 — No manual transcription.** Every artefact in the evidence pack is
-produced by a command that wrote it. If a check needs output from the
-operator's own machine, give them a script that captures it to a file.
-Never ask a human to copy-paste terminal output into a file.
+**R8 — No manual transcription.** Every artefact is produced by a command
+that wrote it. If a check needs output from the operator's own machine,
+give them a command that writes it to a file. Never ask a human to
+copy-paste terminal output into a file.
 
 **R9 — Secrets never leave the host.** Do not read, echo, or store
 passwords, private keys, tokens, `.env` contents, or database URLs. Check
-their *permissions and existence*, never their values. Run the redaction
-gate (§6) before anything is written to a repo.
+their *permissions and existence*, never their values. Run `redact-check`
+before anything is written to a repository.
 
 **R10 — Say "unknown".** If a check cannot run, record `UNKNOWN` with the
 reason. Never infer a PASS from an absent error. A partial audit that is
@@ -84,254 +87,184 @@ honest is useful; a complete audit that is guessed is dangerous.
 
 ---
 
-## 2. Phase 0 — Scope and fingerprint
+## 2. Phase 0 — Scope
 
-Establish what you are working with before you check anything. Ask the user
-for anything you cannot detect.
+Establish what you are working with before you run anything. Ask the user
+for anything you cannot detect, and do not guess host names or user names.
 
 Confirm with the user:
-- Which host(s), and how you reach them.
+- Which host(s), and how you reach them (SSH alias, login user).
 - **Is there an out-of-band way in** (provider console)? If no, R2 forbids
   SSH and firewall changes — audit only.
 - What is production on this box and what must not be interrupted.
+- Whether the login user needs a sudo password (see §3.4).
+- Where backups live, the recovery point objective, and whether a copy is
+  kept off the host.
 - Maintenance window, if any.
-- Where the evidence pack should be written.
 
-Then fingerprint the host (read-only, safe anywhere):
-
-```bash
-{ date -u; hostname; uname -srm; cat /etc/os-release | head -3; uptime; } 2>/dev/null
-command -v systemctl apt dnf yum ufw firewall-cmd nft iptables docker podman fail2ban-client lynis 2>/dev/null
-systemd-detect-virt 2>/dev/null; df -h / /var 2>/dev/null
-```
-
-Adapt every later command from this fingerprint:
-
-| Dimension | Variants you must handle |
-|---|---|
-| Package manager | `apt` (Debian/Ubuntu) · `dnf`/`yum` (RHEL family) · `zypper` · `apk` |
-| Auto-patching | `unattended-upgrades` · `dnf-automatic` · `zypper-automatic` |
-| Firewall | `ufw` · `firewalld` · raw `nftables`/`iptables` · **cloud-provider security group** (may be the real perimeter — ask) |
-| Logging | `/var/log/auth.log` (Debian) · `/var/log/secure` (RHEL) · journald only (newer Ubuntu/Fedora) |
-| Brute-force defence | `fail2ban` · `sshguard` · `CrowdSec` · provider-level |
-| Containers | `docker` · `podman` · `k8s` — changes who owns ports and users |
-| Init | `systemd` assumed; on others, translate or mark UNKNOWN |
+Then write a **profile** (see `profiles/single-vps-webhost.toml`): public
+ports, TLS domains, RPO, backup paths, admin and service accounts. A profile
+for a real host contains host names — keep it out of any public repository.
 
 If the host is inside a container, a managed platform, or an immutable
-image, say so early — several controls below are owned by the platform, not
-the host, and should be marked `N/A (platform-owned)` rather than FAIL.
+image, say so early — several controls are owned by the platform, not the
+host.
 
 ---
 
-## 3. Phase 1 — The control catalogue (read-only)
+## 3. Phase 1 — Run the audit
 
-Run these. For each, record: the command, its raw output as an artefact,
-and a verdict of `PASS` / `FAIL` / `N/A` / `UNKNOWN`.
+The tool is a single file, `server-hardening-audit.pyz`, needing only
+Python 3.10+ on the host. Commands below write `sha` for
+`python3 server-hardening-audit.pyz`.
 
-Severity is what to use when ranking findings: **CRIT** = likely remote
-compromise path, fix today. **HIGH** = meaningful exposure or no recovery
-path. **MED** = weakens defence in depth. **LOW** = hygiene.
+### 3.1 See what it will do
 
-### ACCESS — who can get in
-
-**ACC-01 · Remote login uses keys, not passwords** — CRIT
 ```bash
-sshd -T 2>/dev/null | grep -iE '^(passwordauthentication|permitrootlogin|pubkeyauthentication|kbdinteractiveauthentication|challengeresponseauthentication|permitemptypasswords|maxauthtries|port|allowusers|allowgroups|x11forwarding)\b'
-grep -n '^Include' /etc/ssh/sshd_config
-ls -la /etc/ssh/sshd_config.d/ 2>/dev/null
-grep -rniE 'PasswordAuthentication|PermitRootLogin' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/ 2>/dev/null
-```
-PASS: `passwordauthentication no`, `permitrootlogin no` (or
-`prohibit-password` with a stated reason), `kbdinteractiveauthentication no`,
-`permitemptypasswords no`.
-
-Note the `Include` glob pattern before you judge the drop-in directory:
-only files matching that glob are loaded, and **first match wins** for a
-given keyword — a low-numbered drop-in overrides the main file, and a
-renamed backup (`*.bak`) is inert. Cloud images commonly ship a
-vendor drop-in that re-enables password login; never conclude from the main
-file alone (R5).
-
-**ACC-02 · Key material hygiene** — HIGH
-```bash
-for f in /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys; do
-  [ -f "$f" ] && { echo "== $f"; ls -l "$f"; awk '{print $1, $NF}' "$f"; }
-done 2>/dev/null
-```
-Record key **types and comments only, never the key body**. PASS: every key
-is attributable to a person or system the owner recognises; files are `600`;
-no `authorized_keys2`; no unexpected `command=`/`from=` entries; prefer
-ed25519 or RSA ≥ 3072.
-
-**ACC-03 · Service accounts are unprivileged** — HIGH
-```bash
-awk -F: '$3>=1000 && $1!="nobody"{print $1":"$3":"$7}' /etc/passwd
-getent group sudo wheel adm docker lxd 2>/dev/null
-grep -rhv '^\s*#' /etc/sudoers /etc/sudoers.d/ 2>/dev/null | grep -v '^\s*$'
-ps -eo user,pid,comm --sort=user | awk '$1=="root"' | head -40
-systemctl show -p User,Group,DynamicUser $(systemctl list-units --type=service --state=running --no-legend | awk '{print $1}') 2>/dev/null | paste - - - | grep -v 'User=$' 
-```
-PASS: the account running each application is not in `sudo`/`wheel`/`docker`
-(**membership in the container group is equivalent to root** — a user who can
-run containers can mount the host filesystem), no `NOPASSWD: ALL` for
-application accounts, and no application process running as root. Privileged
-system daemons (init, sshd, the web server's master process binding
-privileged ports) are expected root and are not findings.
-
-**ACC-04 · No stale or passwordless accounts** — MED
-```bash
-awk -F: '($2==""){print "EMPTY PASSWORD: "$1}' /etc/shadow 2>/dev/null
-lastlog 2>/dev/null | awk 'NR==1 || !/Never logged in/' | head -20
+sha list
 ```
 
-### NETWORK — what the internet can reach
+`list` prints every command each control runs and every file it reads.
+Show it to the user before asking for root. Nothing outside that list is
+executed: commands pass through a default-deny allowlist, run without a
+shell, from a fixed PATH.
 
-**NET-01 · Firewall default-deny with a minimal allow-list** — CRIT
+### 3.2 Run it
+
 ```bash
-ufw status verbose 2>/dev/null || firewall-cmd --list-all 2>/dev/null || nft list ruleset 2>/dev/null || iptables -S
-```
-PASS: inbound default is deny/drop; the allow-list contains only ports with
-a named owner; **IPv6 is covered too** (a v4-only ruleset with a
-v6-listening service is a silent hole). If a cloud security group is the
-real perimeter, audit that instead and say so.
-
-**NET-02 · Only intended services listen publicly** — CRIT
-```bash
-ss -tlnp; ss -ulnp
-ss -tlnpH | awk '{print $4}' | grep -E '^(0\.0\.0\.0|\*|\[::\]):' | grep -vE ':(22|80|443)$'
-```
-Adjust the final exclusion list to the ports the user declared in Phase 0.
-PASS: the last command prints nothing. Databases, caches, admin panels,
-metrics endpoints, and application servers behind a reverse proxy must bind
-`127.0.0.1`/`::1`, not `0.0.0.0`. Loopback-only resolver stubs are normal.
-
-**NET-03 · Container runtime is not bypassing the firewall** — CRIT
-```bash
-docker ps --format '{{.Names}}: {{.Ports}}' 2>/dev/null
-iptables -S DOCKER 2>/dev/null; iptables -S DOCKER-USER 2>/dev/null
-```
-Docker inserts its own forwarding rules ahead of the host firewall, so a
-published port is reachable from the internet **even when the firewall
-never allowed it**. PASS: every published port is bound to a loopback
-address (`127.0.0.1:host:container`), or is genuinely meant to be public.
-A container that only needs to be reached by a sibling container should
-publish no host port at all.
-
-**NET-04 · External reachability matches intent** — CRIT
-From a different network (operator's laptop, another host):
-```bash
-nmap -Pn -p 22,80,443,3000,3306,5432,6379,8080,9000,27017 TARGET
-```
-PASS: only the intended ports are `open`; everything else `filtered` or
-`closed`. This is the only check that proves NET-01..03 actually hold (R6).
-
-**NET-05 · TLS is current** — MED
-```bash
-for d in DOMAIN1 DOMAIN2; do echo "== $d"; echo | openssl s_client -connect "$d":443 -servername "$d" 2>/dev/null | openssl x509 -noout -dates -issuer; done
-```
-PASS: > 14 days to expiry and automated renewal is in place.
-
-### PATCHING — how fast known holes close
-
-**PAT-01 · Security updates install automatically** — HIGH
-```bash
-# Debian/Ubuntu
-cat /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null
-unattended-upgrade --dry-run --debug 2>&1 | tail -20
-systemctl list-timers 'apt-daily*' --all 2>/dev/null
-tail -50 /var/log/unattended-upgrades/unattended-upgrades.log 2>/dev/null
-# RHEL family
-systemctl is-enabled --quiet dnf-automatic.timer 2>/dev/null && echo enabled; grep -E '^(apply_updates|upgrade_type)' /etc/dnf/automatic.conf 2>/dev/null
-```
-PASS: enabled, has run recently, and the log shows real upgrades over the
-last month.
-
-**PAT-02 · No backlog, no deferred reboot** — HIGH
-```bash
-apt-get update -qq 2>/dev/null && apt list --upgradable 2>/dev/null | grep -i security
-dnf updateinfo list security 2>/dev/null
-[ -f /var/run/reboot-required ] && cat /var/run/reboot-required.pkgs || echo "no reboot pending"
-needs-restarting -r 2>/dev/null
-```
-PASS: no pending security packages; no reboot-required flag. **A kernel
-patch installed but not rebooted into is not applied** — treat a
-long-standing flag as HIGH, not LOW.
-
-### DETECTION — will you know, and can you prove it later
-
-**DET-01 · Brute-force response is active and working** — MED
-```bash
-systemctl is-active fail2ban; systemctl is-enabled fail2ban
-fail2ban-client status; fail2ban-client status sshd
-for p in bantime findtime maxretry; do echo -n "$p: "; fail2ban-client get sshd $p; done
-journalctl -u fail2ban --since "7 days ago" 2>/dev/null | grep -c 'Ban '
-```
-PASS: active, enabled at boot, and **cumulative bans > 0** — a live
-internet-facing SSH port always attracts attempts, so a zero count means it
-is not reading the right log source, not that the internet is peaceful. On
-newer distros without `/var/log/auth.log`, the jail needs
-`backend = systemd`; a service that fails to start on a missing log file is
-a common silent failure.
-
-**DET-02 · Authentication logs exist and are retained** — MED
-```bash
-journalctl --disk-usage; grep -E '^\s*(Storage|MaxRetentionSec|SystemMaxUse)' /etc/systemd/journald.conf
-ls -l /var/log/auth.log /var/log/secure 2>/dev/null
-```
-PASS: journald `Storage=persistent` (volatile logs vanish on reboot,
-destroying incident evidence) and a retention window the user considers
-adequate.
-
-**DET-03 · Audit / integrity tooling** — LOW
-```bash
-systemctl is-active auditd 2>/dev/null; command -v aide debsums rkhunter 2>/dev/null
+sudo sha audit --profile profile.toml --out ~/sha-runs
 ```
 
-### RESILIENCE — can you come back
+This creates `~/sha-runs/<UTC timestamp>-<hostname>/`:
 
-**RES-01 · Backups exist, are recent, and are off-box** — CRIT
+| File | What it is |
+|---|---|
+| `report.md` | Human report; ends with "What this report does not cover" |
+| `findings.json` | One finding per control: verdict, basis, summary, details, evidence paths |
+| `evidence/<ID>/` | Raw evidence per control; `index.json` records every operation |
+| `MANIFEST.sha256` | Checksums of the evidence (`sha256sum -c MANIFEST.sha256`) |
+| `run.json` | Tool version, control-file hash, profile, host fingerprint |
+
+Exit code: 0 no FAIL, 1 FAIL but none critical, 2 critical FAIL, 3 tool error.
+
+To copy the run to your machine, have the user return ownership first
+(§3.4), then `scp -r` it back and verify `MANIFEST.sha256`.
+
+### 3.3 Read the findings
+
+Read `findings.json`, not only the report. For each finding: `verdict`
+(PASS, FAIL, NA, UNKNOWN, MANUAL), `basis` (verified = machine evidence,
+attested = operator statement), `summary`, `details`, `evidence`.
+
+**UNKNOWN — investigate the reason, do not guess.** The summary says why:
+a command missing, permission denied, output that could not be parsed,
+package lists too old to judge. Typical fixes: re-run as root; install
+nothing just to make a check pass (that changes the host — ask first);
+if package lists are stale, report that rather than running
+`apt-get update` yourself. If a check stays UNKNOWN, it stays UNKNOWN in
+the report with its reason.
+
+**NA** always carries a reason (e.g. "Docker is not installed"). Check that
+the reason is true for this host.
+
+**MANUAL** needs a procedure and an attestation (§5).
+
+### 3.4 Commands that need a sudo password
+
+Your shell cannot type a password. When the login user needs one, give the
+user **every** command they must run, verbatim, in one block, and wait:
+
 ```bash
-crontab -l 2>/dev/null; ls -la /etc/cron.d/ 2>/dev/null
-systemctl list-timers --all 2>/dev/null | grep -iE 'backup|dump'
-ls -la /var/backups/ /opt/backups/ ~/backups 2>/dev/null
+sudo python3 ~/sha-run/server-hardening-audit.pyz audit --profile ~/sha-run/profile.toml --out ~/sha-run/runs
+sudo chown -R "$USER": ~/sha-run/runs
 ```
-PASS: scheduled, newest artefact within the stated RPO, retention pruning
-exists (unpruned backups fill the disk and cause the outage they were meant
-to survive), **and at least one copy lives on another system** — a backup
-on the host it protects does not survive that host.
 
-**RES-02 · Restore drill succeeds** — CRIT. See §4; this is the control
-most often assumed and least often tested.
+Do not drip-feed commands one at a time. Say what each command does and
+that none of them changes the host (the second only changes ownership of
+the tool's own output).
 
-**RES-03 · Headroom** — MED
-```bash
-df -h; df -i; free -h
-```
-PASS: > 20% free on `/` and the data volume, inodes not exhausted.
+### 3.5 Lynis (optional)
 
-### BASELINE — the second opinion
+The tool reads an existing Lynis report (BAS-01) but never runs Lynis,
+because Lynis writes to `/var/log`. If the user wants a score, give them
+the command (`sudo lynis audit system --quiet --no-colors`), then re-run
+`sha audit --only BAS-01`. Prefer the upstream package over an old distro
+version. The number that matters is the same score measured again after
+remediation; do not chase 100.
 
-**BAS-01 · Benchmark score recorded** — LOW
-```bash
-lynis audit system --quiet --no-colors
-grep -E '^(hardening_index|warning|suggestion)' /var/log/lynis-report.dat
-```
-Prefer the upstream package over a distro version that may be years old.
-The absolute number matters less than **the same number measured again
-after remediation** — a before/after delta is the deliverable. Do not chase
-100: many suggestions assume separate partitions, mandatory access control,
-or no compiler, and are inapplicable or actively harmful to the workload.
-Triage suggestions by (small change × real risk reduction × no service
-impact) and act on a handful.
+### 3.6 If the engine cannot run on the host
 
-**BAS-02 · Kernel network/memory parameters** — LOW
-```bash
-sysctl -a 2>/dev/null | grep -E 'kptr_restrict|dmesg_restrict|rp_filter|accept_redirects|accept_source_route|tcp_syncookies|randomize_va_space'
-```
+If the host has no usable Python, read `controls/linux-baseline.toml` on
+your machine and run the same commands by hand, one control at a time,
+exactly as `list` prints them — no pipes, no extra flags, no commands that
+are not in the list. Save each output to a file named after the control,
+judge it by the control's `assert` and `text.rationale`, and label every
+result as manual in the report. Do not copy raw content of sensitive
+sources (shadow, authorized_keys, crontabs): record only what the derived
+evidence would record.
 
 ---
 
-## 4. Phase 2 — Restore drill
+## 4. External probe (run on the operator's machine)
+
+```bash
+sha probe HOST --ports 22,80,443,3000,5432,6379,8080 --ssh-user LOGIN_USER \
+  --tls-domain site-a.example --profile profile.toml --out RUN_DIR/probe
+```
+
+- Include ports that must be **closed**: proving they are unreachable
+  matters as much as proving 22/80/443 are reachable.
+- The probe connects to each port once per address family (IPv4 and IPv6
+  separately — a firewall that covers only IPv4 shows up here).
+- For SSH it opens one connection per user **offering no credentials** and
+  reads which methods the server advertises. No password or key is tried.
+  Some aggressive brute-force filters count unauthenticated disconnects;
+  if the operator's address is not in the ignore list, mention it.
+- It writes `probe.json` and `probe-attestation.toml` (NET-04, NET-05, and
+  an external check of ACC-01).
+
+Only probe hosts the user is authorised to test.
+
+**Negative test.** After any SSH hardening, run the probe again. The ACC-01
+attestation must show only `publickey`; then prove key login still works
+from a new session (R2). Both results must be present — the second is what
+proves you did not lock the owner out.
+
+---
+
+## 5. MANUAL controls and attestations
+
+Some facts cannot be observed from inside the host: what the internet can
+reach (NET-04), whether a restore works (RES-02), whether a backup copy
+exists elsewhere (RES-01 when the profile requires one). Guide the operator
+through the procedure, then write an attestation file:
+
+```toml
+[[attestation]]
+control = "RES-02"
+verdict = "PASS"
+method = "Restored latest dump into a throwaway database; reconciled row counts per table."
+performed_at = 2026-10-12T05:10:00Z
+performed_by = "operator with AI agent"
+evidence = ["restore/row-counts.txt", "restore/timing.txt"]
+[attestation.measurements]
+restore_seconds = 130
+dump_bytes = 39845888
+```
+
+Evidence paths are relative to the attestation file; the report records
+their sha256. Render with:
+
+```bash
+sha report RUN_DIR --attest RUN_DIR/probe/probe-attestation.toml --attest restore-attestation.toml
+```
+
+An attested result shows as `PASS · attested`, never as a plain PASS.
+An attestation cannot turn a verified FAIL into PASS; an external
+observation that contradicts a verified PASS turns it into FAIL. The full
+format is in `docs/ATTESTATIONS.md`.
+
+### 5.1 Restore drill protocol (RES-02)
 
 Never test a restore by restoring over production. The procedure is always:
 take (or take the newest) backup → restore it **into a fresh, throwaway
@@ -343,120 +276,91 @@ target** → compare against the source → destroy the target.
    their contents (`pg_restore --list`, `tar -tf`, `restic check`). If it
    cannot be listed, it cannot be trusted.
 3. **Restore into a new empty target** with a name that cannot be confused
-   with production (`*_restore_test`). Time it — this is the bulk of RTO.
-4. **Reconcile.** Run the same counting query/command against source and
-   restored copy: row counts per major table, plus a newest-record
-   timestamp. Small positive drift on live tables is expected (the system
-   kept working during the drill) — record the delta and the snapshot time
-   rather than treating it as failure.
+   with production (`*_restore_test`). Ask before creating it (R3). Time
+   it — this is the bulk of RTO.
+4. **Reconcile.** Run the same counting query against source and restored
+   copy: row counts per major table, plus a newest-record timestamp. Small
+   positive drift on live tables is expected — record the delta and the
+   snapshot time rather than treating it as failure.
 5. **Check semantics, not just volume.** Confirm the restored data is the
-   *right* data — the expected tenants/sites/accounts are present. Restoring
-   a healthy backup of the wrong database is a real and recurring failure.
+   *right* data — the expected tenants/sites/accounts are present.
 6. **Tear down** the throwaway target. Ask first (R3), name it exactly.
-7. **Record RPO and RTO** as numbers: RPO from backup frequency, RTO from
-   measured restore time plus realistic cutover.
+7. **Record RPO and RTO** as numbers in the attestation's measurements.
+
+Backup artefacts and personal data never leave the host: record size,
+checksum, table list, counts and timings only.
 
 ---
 
-## 5. Phase 3 — Report, then remediate
+## 6. Triage
 
-Produce the report before proposing any change.
+1. **Critical FAILs first**, then high, medium, low.
+2. Within a severity, separate **exploitable** from **defence in depth**:
+   a database listening on a public address (NET-02/NET-03) is an open door
+   today; missing auditd (DET-03) makes the next incident harder to
+   investigate. Say which is which.
+3. Check the architecture before calling something a problem: a port that
+   is public on purpose belongs in the profile, not in the findings.
+4. Every FAIL gets one of: **fix** (propose it, §7) or **risk acceptance**
+   with a reason and a review date:
 
-**findings.md** — one row per control:
+```toml
+[[risk_acceptance]]
+control = "ACC-06"
+reason = "Key-only SSH from a single admin device; FIDO2 keys planned."
+accepted_by = "owner"
+review_by = 2026-12-31
+```
 
-| ID | Control | Verdict | Severity | Evidence | What it means | Proposed fix |
-|---|---|---|---|---|---|---|
+A risk-accepted FAIL is still a FAIL (`FAIL · risk accepted`). Never accept
+an exploitable finding without a compensating control.
 
-Also emit **findings.json** (`[{id, title, verdict, severity, evidence,
-rationale, fix_command, disruptive}]`) so the run can be diffed against the
-next one.
+---
 
-Then, for remediation:
+## 7. Remediation protocol
+
+Produce the report before proposing any change. Then:
 
 - Present fixes **grouped by blast radius**: non-disruptive first (file
   permissions, adding a timer, a firewall rule that only narrows),
   service-affecting last (restarts, port rebinds, container recreation).
+  Each finding's `remediation.disruptive` flag is a starting point.
 - For each, state the exact command, what it changes, how to undo it, and
   whether it interrupts service. Get explicit approval per group (R3).
-- Apply one group at a time. **Re-run that control's check immediately
-  after** — never batch changes and verify at the end; you lose the ability
-  to attribute a break.
-- After any SSH or firewall change, run the external probe (R6) and a fresh
-  login test before moving on.
-- Record what you changed in a changelog with timestamps and backup paths.
+- Apply one group at a time. **Re-run that control immediately after**
+  (`sha audit --only ID`) — never batch changes and verify at the end; you
+  lose the ability to attribute a break.
+- After any SSH or firewall change, run the probe (§4) and a fresh login
+  test before moving on.
+- Record what you changed, with timestamps and backup paths.
 
-**Negative tests.** For access controls, proving the door opens is half the
-job; prove the closed doors are closed. Capture these to a file from the
-client side rather than by hand (R8):
+After remediation, a full re-run and `sha diff OLD_RUN NEW_RUN` is the
+before/after record.
+
+---
+
+## 8. Publishing results
+
+A run directory is a map of the host: keep it private. To publish a sample:
 
 ```bash
-#!/usr/bin/env bash
-# access-negative-test.sh TARGET_HOST LOGIN_USER  -> writes access-negative-test.txt
-set -uo pipefail
-H="$1"; U="$2"; OUT=access-negative-test.txt
-{
-  echo "== $(date -u +%FT%TZ) target=$H"
-  echo "--- password auth must be refused"
-  ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no \
-      -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o BatchMode=yes \
-      "$U@$H" true 2>&1 | tail -2
-  echo "--- root login must be refused"
-  ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o BatchMode=yes \
-      "root@$H" true 2>&1 | tail -2
-  echo "--- key login must still work"
-  ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o BatchMode=yes \
-      "$U@$H" 'echo KEY_LOGIN_OK' 2>&1 | tail -2
-} | tee "$OUT"
+sha scrub RUN_DIR --map private-map.toml --out examples/ \
+  --attest ... --drop-controls IDS --note "Host identifiers redacted; all measurements are real."
+sha redact-check examples/
 ```
-Expected: the first two end in `Permission denied (publickey)`, the third
-prints `KEY_LOGIN_OK`. **All three lines must be present** — the third is
-what proves you did not lock the owner out.
 
-If a rate-limiting control is tested by deliberately failing logins, warn
-the user first that the source address will be banned, and know the
-unban command before you start.
+- The map replaces host names, domains, user names, container and database
+  names and paths with placeholders; addresses are replaced automatically;
+  numbers are never changed. `scrub` refuses to write anything that still
+  contains a mapped value or fails the redaction gate.
+- **Never publish an unfixed, exploitable FAIL.** Withhold it with
+  `--drop-controls` until it is fixed.
+- Then read the output as a stranger would, trying to locate the host or
+  any account or path. If you can, extend the map and scrub again.
 
 ---
 
-## 6. Evidence discipline
-
-An audit whose outputs cannot be re-read later is an opinion. Produce a
-pack that a third party could check.
-
-Layout, one directory per run:
-
-```
-<pack>/<YYYY-MM-DD>-<host>/
-  00-scope.md            # what was audited, by whom, with what access, what was out of scope
-  raw/<CONTROL-ID>.txt   # verbatim output, one file per control
-  findings.md
-  findings.json
-  changelog.md           # every change made, with timestamps and backup paths
-  MANIFEST.txt           # sha256 of every file in raw/
-  checklist.md           # the one-page summary
-```
-
-Rules:
-
-- Capture with `| tee raw/<ID>.txt` as you go; never reconstruct afterwards.
-- Disable colour output for anything you save (`--no-colors`, `NO_COLOR=1`);
-  ANSI escapes make stored output unreadable.
-- **Empty output is evidence.** Keep the empty file — it is the proof that
-  a "find anything bad" check found nothing.
-- Checksum at the end: `find raw -type f -exec sha256sum {} + | sort -k2 > MANIFEST.txt`.
-- **Redaction gate — run before anything leaves the host or enters a repo:**
-  ```bash
-  grep -rniE 'password|passwd|secret|token|api[_-]?key|private[_-]?key|BEGIN [A-Z ]*PRIVATE KEY|DATABASE_URL|://[^/ ]*:[^@/ ]*@' <pack>/ || echo "REDACTION GATE PASSED"
-  ```
-  Anything matched is removed or masked before commit. Backup artefacts
-  (database dumps, archives) never enter the pack — store their size,
-  checksum, and content listing instead.
-- Treat the pack as **sensitive**: it is a map of the host. Private
-  repository only.
-
----
-
-## 7. Failure modes worth knowing
+## 9. Failure modes worth knowing
 
 Recognising these is most of the value you add over a checklist.
 
@@ -471,21 +375,22 @@ Recognising these is most of the value you add over a checklist.
 | Patches applied, vulnerability persists | kernel/library updated but not rebooted or not restarted | PAT-02; enumerate processes using deleted libraries |
 | Disk full at 3am | backup job with no retention pruning | RES-01; add age-based pruning |
 | Benchmark score barely moves after real work | inapplicable suggestions counted against you | report the delta on applicable controls; document accepted risks |
+| A check is UNKNOWN on every run | tool missing, not root, or stale package lists | read the reason; fix the cause or report it — never mark it PASS |
 
 ---
 
-## 8. Closing deliverable
+## 10. Closing deliverable
 
-Finish with a one-page `checklist.md` that someone who was not present can
-act on:
+Finish with:
 
-- one row per control: ID, what was checked, verdict, evidence path,
-  whether it was fixed during this run;
+- the run directory and its rendered report with every attestation applied,
+  and the framework views if the user needs them
+  (`sha report RUN_DIR --attest … --framework essential-eight`);
 - **residual risks**, explicitly accepted, each with a reason and a review
   date — a named accepted risk is a sign of judgement; an unnamed one is a
   gap;
 - what changed, and how to roll it back;
-- the next scheduled run.
+- the next scheduled run, and the `diff` command to compare against.
 
 Then tell the user, in plain language: the two or three things that
 mattered most, what you changed, what you deliberately did not change, and
