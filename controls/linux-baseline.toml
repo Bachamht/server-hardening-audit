@@ -1,0 +1,806 @@
+# Linux baseline controls, v1.
+#
+# Each control names checks (commands, files, collectors), one assertion,
+# explanatory text and framework references. Controls cannot contain code:
+# parsers, collectors and assertion operators are referenced by name only.
+# Framework references are proposals until frameworks/*.toml confirms them.
+# See docs/WRITING-CONTROLS.md.
+
+# --- ACCESS ---------------------------------------------------------------------
+
+[[control]]
+id = "ACC-01"
+title = "SSH accepts keys only and refuses root login"
+domain = "access"
+severity = "critical"
+platforms = ["debian", "ubuntu", "rhel"]
+
+[[control.check]]
+type = "collector"
+collector = "sshd_effective"
+name = "sshd"
+
+[control.assert]
+op = "kv_equals"
+source = "sshd.effective"
+expect = { passwordauthentication = "no", kbdinteractiveauthentication = "no", permitrootlogin = "no", permitemptypasswords = "no", pubkeyauthentication = "yes" }
+
+[control.text]
+rationale = """
+Password logins make the host a target for credential stuffing and brute
+force; direct root login removes the audit trail of who acted. The verdict
+uses the configuration sshd itself resolves (`sshd -T`), not the main
+config file: drop-in files, Include order (first match wins) and cloud-image
+defaults routinely override what sshd_config appears to say.
+"""
+remediation = "Set PasswordAuthentication no, KbdInteractiveAuthentication no and PermitRootLogin no in the first-loaded drop-in; validate with `sshd -t`, apply with a reload, then prove a new key login works before closing the current session."
+disruptive = true
+limitations = "Match blocks are evaluated for root and each declared admin user from localhost; Match rules keyed on other source addresses are not evaluated."
+
+[control.refs]
+iso27001_2022 = ["A.8.5"]
+essential_eight = ["restrict-admin-privileges"]
+
+[[control]]
+id = "ACC-02"
+title = "authorized_keys files are clean and attributable"
+domain = "access"
+severity = "high"
+
+[[control.check]]
+type = "collector"
+collector = "authorized_keys"
+name = "keys"
+
+[control.assert]
+op = "count_at_most"
+source = "keys.violations"
+max = 0
+description = "authorized_keys problems"
+
+[control.text]
+rationale = """
+Every authorized key is a standing credential. Keys nobody can attribute,
+weak key types, deprecated authorized_keys2 files and loose permissions
+are how access outlives the people and systems it was granted to. Only key
+type, comment and option names are recorded -- never key material.
+"""
+remediation = "Remove keys that cannot be attributed; replace DSA and RSA < 3072 keys with ed25519; chmod 600 each authorized_keys file; delete authorized_keys2 files after moving any needed key."
+disruptive = true
+limitations = "Whether each key's owner is still entitled to access is a human judgement; the key inventory is listed in the details for review."
+
+[control.refs]
+iso27001_2022 = ["A.5.17", "A.8.5"]
+
+[[control]]
+id = "ACC-03"
+title = "Application accounts hold no privileges"
+domain = "access"
+severity = "high"
+
+[[control.check]]
+type = "collector"
+collector = "privileged_accounts"
+name = "accounts"
+
+[control.assert]
+op = "count_at_most"
+source = "accounts.violations"
+max = 0
+description = "privileged application or undeclared accounts"
+
+[control.text]
+rationale = """
+An application compromise should not become a host compromise. Membership
+in sudo, wheel, admin, adm, lxd or docker is privilege: anyone who can
+start containers can mount the host filesystem, so the docker group is
+equivalent to root. Accounts that own processes or run services must not
+hold any of these, and privileged human accounts must be declared.
+"""
+remediation = "Remove application accounts from privileged groups (`gpasswd -d USER GROUP`), declare legitimate administrators in the profile's admin_users, and restart affected services in a maintenance window."
+disruptive = true
+
+[control.refs]
+iso27001_2022 = ["A.8.2"]
+essential_eight = ["restrict-admin-privileges"]
+
+[[control]]
+id = "ACC-04"
+title = "No account has an empty password"
+domain = "access"
+severity = "medium"
+
+[[control.check]]
+type = "collector"
+collector = "empty_passwords"
+name = "shadow"
+
+[control.assert]
+op = "count_at_most"
+source = "shadow.empty_password_users"
+max = 0
+description = "accounts with an empty password"
+
+[control.text]
+rationale = """
+An empty password field allows login without any secret wherever password
+authentication is accepted (console, su, some PAM stacks). Only the
+usernames are recorded; password hashes are never stored.
+"""
+remediation = "Lock each listed account (`passwd -l USER`) or set a password."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.5.17"]
+
+[[control]]
+id = "ACC-05"
+title = "sudoers grants no passwordless full root to non-administrators"
+domain = "access"
+severity = "high"
+
+[[control.check]]
+type = "collector"
+collector = "sudoers"
+name = "sudo"
+
+[control.assert]
+op = "count_at_most"
+source = "sudo.violations"
+max = 0
+description = "NOPASSWD: ALL grants to non-administrators"
+
+[control.text]
+rationale = """
+`NOPASSWD: ALL` turns any code execution as that account into root without
+a second secret. Cloud images often grant it to the default user. Only
+files sudo actually loads are considered: files in sudoers.d whose names
+contain a dot or end in '~' are ignored by sudo and reported separately.
+"""
+remediation = "Remove NOPASSWD from full-root grants (edit with `visudo -f`), or narrow the grant to specific commands; keep a root session open while testing."
+disruptive = true
+
+[control.refs]
+iso27001_2022 = ["A.8.2"]
+essential_eight = ["restrict-admin-privileges"]
+
+[[control]]
+id = "ACC-06"
+title = "Administrative access requires multiple factors"
+domain = "access"
+severity = "high"
+
+[[control.check]]
+type = "collector"
+collector = "ssh_mfa"
+name = "mfa"
+
+[control.assert]
+op = "kv_equals"
+source = "mfa"
+expect = { mfa_enforced = true }
+
+[control.text]
+rationale = """
+A private key on a laptop is one factor: whoever holds the file (and its
+passphrase, which the server cannot verify) gets in. MFA for SSH means
+sshd requires two methods (AuthenticationMethods) or every authorized key
+is a FIDO hardware key (sk-* types) that proves physical presence. Most
+hosts fail this control; that is an honest result, not a defect.
+"""
+remediation = "Enrol FIDO2 keys (`ssh-keygen -t ed25519-sk`) for administrators and remove other keys, or require a second method with AuthenticationMethods publickey,keyboard-interactive plus a TOTP PAM module."
+disruptive = true
+
+[control.refs]
+iso27001_2022 = ["A.8.5"]
+essential_eight = ["multi-factor-authentication"]
+
+# --- NETWORK --------------------------------------------------------------------
+
+[[control]]
+id = "NET-01"
+title = "Host firewall denies by default, allows minimally, covers IPv6"
+domain = "network"
+severity = "critical"
+
+[[control.check]]
+type = "collector"
+collector = "firewall"
+name = "fw"
+
+[control.assert]
+op = "all_of"
+
+[[control.assert.of]]
+op = "kv_equals"
+source = "fw"
+expect = { default_deny_v4 = true, default_deny_v6 = true }
+
+[[control.assert.of]]
+op = "count_at_most"
+source = "fw.extra_ports"
+max = 0
+description = "ports open to any source beyond the declared public ports"
+
+[control.text]
+rationale = """
+Default-deny means a service started by mistake is unreachable until
+someone decides otherwise. A ruleset that filters IPv4 only leaves every
+IPv6-listening service exposed. The front-end is identified (ufw,
+firewalld, nftables, iptables) and its resolved policy is read.
+"""
+remediation = "Allow the management port first, then set the default incoming policy to deny (e.g. `ufw allow 22/tcp && ufw default deny incoming && ufw enable`); set IPV6=yes in /etc/default/ufw; remove allow rules for undeclared ports."
+disruptive = true
+limitations = "Cloud-provider security groups and network ACLs are invisible from inside the host; if they are the real perimeter, review them separately."
+
+[control.refs]
+iso27001_2022 = ["A.8.20"]
+
+[[control]]
+id = "NET-02"
+title = "Only intended services listen on non-loopback addresses"
+domain = "network"
+severity = "critical"
+
+[[control.check]]
+type = "cmd"
+argv = ["ss", "-tlnpH"]
+parser = "ss_listeners"
+save_as = "ss-tcp.txt"
+
+[[control.check]]
+type = "cmd"
+argv = ["ss", "-ulnpH"]
+parser = "ss_listeners"
+save_as = "ss-udp.txt"
+
+[control.assert]
+op = "public_listeners_within"
+source = ["ss-tcp", "ss-udp"]
+ports = { param = "profile.public_ports" }
+udp_ports = { param = "profile.public_udp_ports" }
+
+[control.text]
+rationale = """
+Databases, caches, admin panels and application servers reachable from the
+internet are the most common entry point. Anything outside the declared
+public port set must bind a loopback address. Container ports published by
+Docker appear here too, as docker-proxy listeners.
+"""
+remediation = "Bind the service to 127.0.0.1 (or ::1), or publish the container port on loopback only (`127.0.0.1:HOST:CONTAINER`)."
+disruptive = true
+
+[control.refs]
+iso27001_2022 = ["A.8.20", "A.8.21"]
+
+[[control]]
+id = "NET-03"
+title = "Container ports do not bypass the host firewall"
+domain = "network"
+severity = "critical"
+
+[[control.check]]
+type = "collector"
+collector = "docker_ports"
+name = "docker"
+
+[control.assert]
+op = "count_at_most"
+source = "docker.violations"
+max = 0
+description = "container ports published on non-loopback addresses outside the declared public ports"
+
+[control.text]
+rationale = """
+Docker inserts its own forwarding rules ahead of the host firewall, so a
+port published on 0.0.0.0 is reachable from the internet even when ufw
+never allowed it. The host firewall's own view (NET-01) will not show the
+hole; the published bindings will.
+"""
+remediation = "Publish the port on loopback (`127.0.0.1:3000:3000`) and put the reverse proxy in front of it, or publish no host port if only sibling containers need it."
+disruptive = true
+limitations = "Rules in the DOCKER-USER chain are not evaluated; external probing (NET-04) is what proves the result."
+
+[control.refs]
+iso27001_2022 = ["A.8.20"]
+
+[[control]]
+id = "NET-04"
+title = "External reachability matches the declared public ports"
+domain = "network"
+severity = "critical"
+
+[[control.check]]
+type = "manual"
+instructions = """
+From a machine outside the host's network, run
+`server-hardening-audit probe HOST --ports <declared ports plus ports that
+must be closed> --out DIR` and pass DIR/probe-attestation.toml to
+`report --attest`. Only probe hosts you are authorised to test.
+"""
+
+[control.text]
+rationale = """
+Every in-host check proves what is configured; only a probe from outside
+proves what the internet can reach. It is the only control that confirms
+NET-01 to NET-03 actually hold.
+"""
+remediation = "Investigate any port reachable from outside that is not declared public: find the listener (NET-02) or the container publishing it (NET-03)."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.20"]
+
+[[control]]
+id = "NET-05"
+title = "TLS certificates are valid and not close to expiry"
+domain = "network"
+severity = "medium"
+
+[[control.check]]
+type = "collector"
+collector = "tls_certs"
+name = "tls"
+
+[control.assert]
+op = "count_at_most"
+source = "tls.violations"
+max = 0
+description = "certificate problems"
+
+[control.text]
+rationale = """
+An expired or invalid certificate is an outage for users and trains them to
+click through warnings. Each declared domain is checked on this host's own
+port 443 with SNI, against the system CA store.
+"""
+remediation = "Renew the certificate and confirm automated renewal is scheduled (e.g. `systemctl list-timers` for certbot, or the proxy's ACME client)."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.24"]
+
+# --- PATCHING -------------------------------------------------------------------
+
+[[control]]
+id = "PAT-01"
+title = "Automatic security updates are enabled and running"
+domain = "patching"
+severity = "high"
+platforms = ["debian", "ubuntu", "rhel"]
+implemented = ["debian", "ubuntu"]
+
+[[control.check]]
+type = "collector"
+collector = "auto_updates"
+name = "auto"
+
+[control.assert]
+op = "all_of"
+
+[[control.assert.of]]
+op = "kv_equals"
+source = "auto"
+expect = { installed = true, enabled = true, timer_enabled = true }
+
+[[control.assert.of]]
+op = "value_at_most"
+source = "auto.last_activity_age_hours"
+max = 48
+description = "hours since unattended-upgrades last ran"
+
+[control.text]
+rationale = """
+Most compromises use known, already-patched vulnerabilities. Enabled is not
+enough: the timer must be active and the tool must actually have run
+recently. This tool does not run unattended-upgrade itself (a dry run writes
+logs and takes the apt lock); it reads the configuration, the timers, the
+periodic stamp and the log.
+"""
+remediation = "`apt install unattended-upgrades` and enable it (`dpkg-reconfigure -plow unattended-upgrades`); make sure apt-daily-upgrade.timer is enabled."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.8"]
+essential_eight = ["patch-operating-systems"]
+
+[[control]]
+id = "PAT-02"
+title = "No pending security updates and no pending reboot"
+domain = "patching"
+severity = "high"
+platforms = ["debian", "ubuntu", "rhel"]
+implemented = ["debian", "ubuntu"]
+
+[[control.check]]
+type = "collector"
+collector = "apt_backlog"
+name = "backlog"
+
+[control.assert]
+op = "all_of"
+
+[[control.assert.of]]
+op = "count_at_most"
+source = "backlog.security_upgrades"
+max = 0
+description = "pending security updates"
+
+[[control.assert.of]]
+op = "kv_equals"
+source = "backlog"
+expect = { reboot_required = false }
+
+[control.text]
+rationale = """
+A kernel or library update installed but not rebooted into is not applied.
+The backlog is judged from the package lists already on the host; the tool
+does not run `apt-get update` (it rewrites /var/lib/apt/lists), so when the
+lists are older than the profile allows, the backlog is reported UNKNOWN
+rather than guessed.
+"""
+remediation = "Install pending security updates (`apt upgrade`) and schedule a reboot; check `needrestart` for services using replaced libraries."
+disruptive = true
+
+[control.refs]
+iso27001_2022 = ["A.8.8"]
+essential_eight = ["patch-operating-systems"]
+
+[[control]]
+id = "PAT-03"
+title = "Running container images are not stale"
+domain = "patching"
+severity = "medium"
+
+[[control.check]]
+type = "collector"
+collector = "image_age"
+name = "images"
+
+[control.assert]
+op = "count_at_most"
+source = "images.violations"
+max = 0
+description = "containers running images older than max_image_age_days"
+
+[control.text]
+rationale = """
+Host patching does not reach inside containers. An image built months ago
+carries the vulnerabilities of its base layer from that date.
+"""
+remediation = "Rebuild or pull the image, then recreate the container in a maintenance window (`docker compose pull && docker compose up -d`)."
+disruptive = true
+limitations = "Image age is a proxy: a recent build of an old base image passes. CVE matching is out of scope."
+
+[control.refs]
+iso27001_2022 = ["A.8.8"]
+essential_eight = ["patch-applications"]
+
+# --- DETECTION ------------------------------------------------------------------
+
+[[control]]
+id = "DET-01"
+title = "Brute-force protection is active and working"
+domain = "detection"
+severity = "medium"
+
+[[control.check]]
+type = "collector"
+collector = "brute_force"
+name = "bf"
+
+[control.assert]
+op = "all_of"
+
+[[control.assert.of]]
+op = "kv_equals"
+source = "bf"
+expect = { protection_active = true, ssh_jail_present = true }
+
+[[control.assert.of]]
+op = "value_at_least"
+source = "bf.bans_observed"
+min = 1
+description = "SSH bans observed"
+
+[control.text]
+rationale = """
+An internet-facing SSH port always attracts attempts, so a protection tool
+that has never banned anything is almost certainly reading the wrong log
+source (for example a jail watching /var/log/auth.log on a journald-only
+system). Zero bans is treated as FAIL, not as a quiet internet.
+"""
+remediation = "Enable fail2ban with an sshd jail; on journald-only systems set `backend = systemd` in the jail; check `fail2ban-client status sshd` shows failures being counted."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.16"]
+
+[[control]]
+id = "DET-02"
+title = "Authentication logs persist across reboots"
+domain = "detection"
+severity = "medium"
+
+[[control.check]]
+type = "collector"
+collector = "auth_log_persistence"
+name = "logs"
+
+[control.assert]
+op = "kv_equals"
+source = "logs"
+expect = { auth_logs_persistent = true }
+
+[control.text]
+rationale = """
+Volatile logs vanish on reboot, taking incident evidence with them. The
+effective journald storage mode is resolved from journald.conf and its
+drop-ins (Storage=auto persists only if /var/log/journal exists); a
+syslog-written auth log also counts.
+"""
+remediation = "Set Storage=persistent in a journald.conf.d drop-in (or create /var/log/journal) and restart systemd-journald."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.15"]
+
+[[control]]
+id = "DET-03"
+title = "Audit or file-integrity tooling is present"
+domain = "detection"
+severity = "low"
+platforms = ["debian", "ubuntu", "rhel"]
+implemented = ["debian", "ubuntu"]
+
+[[control.check]]
+type = "collector"
+collector = "integrity_tools"
+name = "integrity"
+
+[control.assert]
+op = "any_of"
+
+[[control.assert.of]]
+op = "kv_equals"
+source = "integrity"
+expect = { auditd_active = true }
+
+[[control.assert.of]]
+op = "kv_equals"
+source = "integrity"
+expect = { aide_installed = true }
+
+[control.text]
+rationale = """
+After an incident, the first questions are what ran and what changed.
+auditd records security-relevant events; AIDE detects file changes. debsums
+presence is reported but does not pass the control on its own.
+"""
+remediation = "Install and enable auditd (`apt install auditd`), or install and initialise AIDE."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.16"]
+
+# --- RESILIENCE -----------------------------------------------------------------
+
+[[control]]
+id = "RES-01"
+title = "Backups exist, are recent and have a retention policy"
+domain = "resilience"
+severity = "critical"
+
+[[control.check]]
+type = "collector"
+collector = "backups"
+name = "backups"
+
+[control.assert]
+op = "all_of"
+
+[[control.assert.of]]
+op = "kv_equals"
+source = "backups"
+expect = { scheduled = true, retention_evidence = true }
+
+[[control.assert.of]]
+op = "value_at_most"
+source = "backups.newest_age_hours"
+max = { param = "profile.rpo_hours" }
+description = "age of newest backup (hours)"
+
+[control.manual_part]
+when = "profile.backup_offsite_required"
+instructions = """
+A backup kept only on the host it protects does not survive that host.
+Confirm a copy of the newest backup exists on another system (list it
+there, with its size and timestamp) and record an attestation for RES-01.
+"""
+
+[control.text]
+rationale = """
+Backups must be scheduled, fresh within the recovery point objective, and
+pruned -- an unpruned backup job fills the disk and causes the outage it
+was meant to survive. Only metadata of backup files is read.
+"""
+remediation = "Schedule the backup (cron or a systemd timer), add age-based pruning, and copy each backup off the host."
+disruptive = false
+limitations = "Off-host copies cannot be verified from inside the host; they are covered by attestation."
+
+[control.refs]
+iso27001_2022 = ["A.8.13"]
+essential_eight = ["regular-backups"]
+
+[[control]]
+id = "RES-02"
+title = "A restore drill has succeeded"
+domain = "resilience"
+severity = "critical"
+
+[[control.check]]
+type = "manual"
+instructions = """
+Restore the newest backup into a new, throwaway target whose name cannot be
+confused with production (e.g. *_restore_test). Time the restore, reconcile
+row counts (or file counts) per major table against the source, confirm the
+restored data is the expected data, then remove the throwaway target.
+Record method, measurements and timing in an attestation for RES-02. The
+agent skill describes the full protocol.
+"""
+
+[control.text]
+rationale = """
+A backup that has never been restored is an assumption. The drill measures
+recovery time and proves the backup contains the right data.
+"""
+remediation = "Run the drill; fix whatever it reveals (missing roles, wrong database, truncated dumps) and repeat."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.13"]
+essential_eight = ["regular-backups"]
+
+[[control]]
+id = "RES-03"
+title = "Disk space and inode headroom"
+domain = "resilience"
+severity = "medium"
+
+[[control.check]]
+type = "collector"
+collector = "disk_headroom"
+name = "disk"
+
+[control.assert]
+op = "count_at_most"
+source = "disk.violations"
+max = 0
+description = "filesystems below the headroom threshold"
+
+[control.text]
+rationale = """
+A full disk stops databases, logging and backups at once. Inode exhaustion
+does the same with space still free.
+"""
+remediation = "Free space (old logs, images, backups) and add pruning; grow the volume if growth is organic."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.6"]
+
+# --- BASELINE -------------------------------------------------------------------
+
+[[control]]
+id = "BAS-01"
+title = "A recent Lynis baseline score is recorded"
+domain = "baseline"
+severity = "low"
+
+[[control.check]]
+type = "collector"
+collector = "lynis_report"
+name = "lynis"
+
+[control.assert]
+op = "value_at_most"
+source = "lynis.report_age_days"
+max = { param = "profile.lynis_max_age_days" }
+description = "age of the Lynis report (days)"
+
+[control.text]
+rationale = """
+Lynis gives a broad second opinion. This tool reads the existing report
+(score, date, warning IDs); it does not run Lynis, which writes to
+/var/log. The number that matters is the same score measured again after
+remediation, not the absolute value.
+"""
+remediation = "Run `lynis audit system` (upstream package preferred) and re-run this audit to record the score."
+disruptive = false
+
+[control.refs]
+
+[[control]]
+id = "BAS-02"
+title = "Kernel network and memory hardening parameters"
+domain = "baseline"
+severity = "low"
+
+[[control.check]]
+type = "collector"
+collector = "sysctl_proc"
+name = "sysctl"
+params = { keys = ["kernel.kptr_restrict", "kernel.dmesg_restrict", "kernel.randomize_va_space", "net.ipv4.tcp_syncookies", "net.ipv4.conf.all.rp_filter", "net.ipv4.conf.all.accept_redirects", "net.ipv4.conf.all.send_redirects", "net.ipv4.conf.all.accept_source_route", "net.ipv6.conf.all.accept_redirects"] }
+
+[control.assert]
+op = "kv_equals"
+source = "sysctl"
+expect = { "kernel.kptr_restrict" = ["1", "2"], "kernel.dmesg_restrict" = "1", "kernel.randomize_va_space" = "2", "net.ipv4.tcp_syncookies" = "1", "net.ipv4.conf.all.rp_filter" = ["1", "2"], "net.ipv4.conf.all.accept_redirects" = "0", "net.ipv4.conf.all.send_redirects" = "0", "net.ipv4.conf.all.accept_source_route" = "0", "net.ipv6.conf.all.accept_redirects" = "0" }
+optional = ["net.ipv6.conf.all.accept_redirects"]
+
+[control.text]
+rationale = """
+These parameters limit kernel address leaks, enable full ASLR, resist SYN
+floods and refuse routing tricks (redirects, source routing, spoofed
+sources). Values are read from /proc/sys; sysctl is never invoked.
+"""
+remediation = "Set the values in /etc/sysctl.d/60-hardening.conf and load with `sysctl --system`. A Docker host needs net.ipv4.ip_forward=1, which is not checked here."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.9"]
+
+[[control]]
+id = "BAS-03"
+title = "System time is synchronised"
+domain = "baseline"
+severity = "low"
+
+[[control.check]]
+type = "collector"
+collector = "time_sync"
+name = "time"
+
+[control.assert]
+op = "kv_equals"
+source = "time"
+expect = { ntp_synchronized = true }
+
+[control.text]
+rationale = """
+Log correlation, certificate validation and TOTP all depend on correct
+time. Incident timelines built from skewed clocks are wrong.
+"""
+remediation = "Enable systemd-timesyncd or chrony (`timedatectl set-ntp true`)."
+disruptive = false
+
+[control.refs]
+iso27001_2022 = ["A.8.17"]
+
+[[control]]
+id = "BAS-04"
+title = "Mandatory access control is enforcing"
+domain = "baseline"
+severity = "low"
+
+[[control.check]]
+type = "collector"
+collector = "mac_status"
+name = "mac"
+
+[control.assert]
+op = "kv_equals"
+source = "mac"
+expect = { enforcing = true }
+
+[control.text]
+rationale = """
+AppArmor or SELinux confines compromised services to what their profile
+allows. It is a weak counterpart of application control: it restricts
+what confined programs do, not which programs may run.
+"""
+remediation = "Keep AppArmor enabled (Ubuntu default) and put service profiles in enforce mode; on RHEL keep SELinux enforcing."
+disruptive = true
+
+[control.refs]
+essential_eight = ["application-control"]
