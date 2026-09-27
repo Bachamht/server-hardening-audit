@@ -1,0 +1,39 @@
+[shared.base]
+call = [
+  { op = "read", path = "/etc/systemd/journald.conf", content = "[Journal]\n#Storage=auto\n#Compress=yes\n" },
+  { op = "glob", pattern = "/usr/lib/systemd/journald.conf.d/*.conf", matches = [] },
+  { op = "glob", pattern = "/run/systemd/journald.conf.d/*.conf", matches = [] },
+  { op = "glob", pattern = "/etc/systemd/journald.conf.d/*.conf", matches = [] },
+  { op = "stat", path = "/var/log/journal", kind = "dir", mode = "2755" },
+  { op = "stat", path = "/var/log/auth.log", exists = false },
+  { op = "stat", path = "/var/log/secure", exists = false },
+]
+
+[[scenario]]
+name = "Storage=auto with /var/log/journal present"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "drop-in forces volatile storage and no syslog auth log"
+expect = "FAIL"
+use = ["base"]
+call = [
+  { op = "glob", pattern = "/etc/systemd/journald.conf.d/*.conf", matches = [ { path = "/etc/systemd/journald.conf.d/10-volatile.conf" } ] },
+  { op = "read", path = "/etc/systemd/journald.conf.d/10-volatile.conf", content = "[Journal]\nStorage=volatile\n" },
+]
+
+[[scenario]]
+name = "volatile journal but rsyslog writes auth.log"
+expect = "PASS"
+use = ["base"]
+call = [
+  { op = "read", path = "/etc/systemd/journald.conf", content = "[Journal]\nStorage=volatile\n" },
+  { op = "stat", path = "/var/log/auth.log", age_hours = 1, owner = "syslog", group = "adm", mode = "0640" },
+]
+
+[[scenario]]
+name = "Storage=auto without /var/log/journal"
+expect = "FAIL"
+use = ["base"]
+call = [ { op = "stat", path = "/var/log/journal", exists = false } ]

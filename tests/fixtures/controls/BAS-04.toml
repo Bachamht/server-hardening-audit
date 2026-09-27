@@ -1,0 +1,40 @@
+[[scenario]]
+name = "AppArmor with enforcing profiles"
+expect = "PASS"
+call = [
+  { op = "read", path = "/sys/module/apparmor/parameters/enabled", content = "Y\n" },
+  { op = "read", path = "/sys/kernel/security/apparmor/profiles", content = "/usr/sbin/rsyslogd (enforce)\nlsb_release (enforce)\n/usr/bin/man (complain)\n" },
+]
+
+[[scenario]]
+name = "AppArmor loaded but every profile in complain mode"
+expect = "FAIL"
+call = [
+  { op = "read", path = "/sys/module/apparmor/parameters/enabled", content = "Y\n" },
+  { op = "read", path = "/sys/kernel/security/apparmor/profiles", content = "/usr/bin/man (complain)\n" },
+]
+
+[[scenario]]
+name = "SELinux enforcing"
+expect = "PASS"
+os = "rocky-9"
+call = [
+  { op = "read", path = "/sys/module/apparmor/parameters/enabled", missing = true },
+  { op = "read", path = "/sys/fs/selinux/enforce", content = "1" },
+]
+
+[[scenario]]
+name = "no MAC at all"
+expect = "FAIL"
+call = [
+  { op = "read", path = "/sys/module/apparmor/parameters/enabled", missing = true },
+  { op = "read", path = "/sys/fs/selinux/enforce", missing = true },
+]
+
+[[scenario]]
+name = "not root: profile list unreadable"
+expect = "UNKNOWN"
+call = [
+  { op = "read", path = "/sys/module/apparmor/parameters/enabled", content = "Y\n" },
+  { op = "read", path = "/sys/kernel/security/apparmor/profiles", error = "[Errno 13] Permission denied", error_kind = "permission" },
+]

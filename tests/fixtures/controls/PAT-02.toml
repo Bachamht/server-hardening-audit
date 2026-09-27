@@ -1,0 +1,45 @@
+[shared.base]
+call = [
+  { op = "stat", path = "/var/lib/apt/periodic/update-success-stamp", age_hours = 5 },
+  { op = "cmd", argv = ["apt", "list", "--upgradable"], stdout = "Listing...\nsnapd/noble-updates 2.66.1+24.04 amd64 [upgradable from: 2.65.3+24.04]\n", stderr = "\nWARNING: apt does not have a stable CLI interface. Use with caution in scripts.\n\n" },
+  { op = "stat", path = "/var/run/reboot-required", exists = false },
+]
+
+[[scenario]]
+name = "only a non-security update pending, no reboot flag"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "security updates pending"
+expect = "FAIL"
+summary_contains = "openssl"
+use = ["base"]
+call = [ { op = "cmd", argv = ["apt", "list", "--upgradable"], stdout_file = "apt-upgradable.synthetic.txt" } ]
+
+[[scenario]]
+name = "kernel installed but not rebooted into"
+expect = "FAIL"
+summary_contains = "reboot_required"
+use = ["base"]
+call = [
+  { op = "stat", path = "/var/run/reboot-required", age_hours = 400 },
+  { op = "read", path = "/var/run/reboot-required.pkgs", content = "linux-image-6.8.0-45-generic\nlinux-base\n" },
+]
+
+[[scenario]]
+name = "package lists 10 days old: backlog cannot be judged"
+expect = "UNKNOWN"
+summary_contains = "apt-get update"
+use = ["base"]
+call = [ { op = "stat", path = "/var/lib/apt/periodic/update-success-stamp", age_hours = 240 } ]
+
+[[scenario]]
+name = "stale lists, but a pending reboot is still a FAIL"
+expect = "FAIL"
+use = ["base"]
+call = [
+  { op = "stat", path = "/var/lib/apt/periodic/update-success-stamp", age_hours = 240 },
+  { op = "stat", path = "/var/run/reboot-required", age_hours = 12 },
+  { op = "read", path = "/var/run/reboot-required.pkgs", content = "libc6\n" },
+]

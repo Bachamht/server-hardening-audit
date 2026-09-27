@@ -1,0 +1,65 @@
+[shared.base]
+call = [
+  { op = "cmd", argv = ["sshd", "-T"], stdout_file = "sshd-T-hardened.synthetic.txt" },
+  { op = "read", path = "/etc/ssh/sshd_config", content_file = "sshd_config-ubuntu.synthetic.txt" },
+  { op = "glob", pattern = "/etc/ssh/sshd_config.d/*", matches = [ { path = "/etc/ssh/sshd_config.d/60-hardening.conf" } ] },
+  { op = "read", path = "/etc/ssh/sshd_config.d/60-hardening.conf", content = "PasswordAuthentication no\nPermitRootLogin no\n" },
+]
+
+[[scenario]]
+name = "hardened"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "cloud-image drop-in re-enables passwords; hardening file renamed .bak"
+expect = "FAIL"
+summary_contains = "passwordauthentication is 'yes'"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["sshd", "-T"], stdout_file = "sshd-T-hardened.synthetic.txt", replace = [["passwordauthentication no", "passwordauthentication yes"]] },
+  { op = "glob", pattern = "/etc/ssh/sshd_config.d/*", matches = [
+      { path = "/etc/ssh/sshd_config.d/50-cloud-init.conf" },
+      { path = "/etc/ssh/sshd_config.d/60-hardening.conf.bak" } ] },
+  { op = "read", path = "/etc/ssh/sshd_config.d/50-cloud-init.conf", content = "PasswordAuthentication yes\n" },
+]
+
+[[scenario]]
+name = "root login allowed with key"
+expect = "FAIL"
+summary_contains = "permitrootlogin"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["sshd", "-T"], stdout_file = "sshd-T-hardened.synthetic.txt", replace = [["permitrootlogin no", "permitrootlogin without-password"]] },
+]
+
+[[scenario]]
+name = "Match block re-enables passwords for an admin user"
+expect = "FAIL"
+summary_contains = "'no|yes'"
+profile = { admin_users = ["opsadmin"] }
+use = ["base"]
+call = [
+  { op = "read", path = "/etc/ssh/sshd_config.d/60-hardening.conf", content = "PasswordAuthentication no\nMatch User opsadmin\n  PasswordAuthentication yes\n" },
+  { op = "cmd", argv = ["sshd", "-T", "-C", "user=root,host=localhost,addr=127.0.0.1"], stdout_file = "sshd-T-hardened.synthetic.txt" },
+  { op = "cmd", argv = ["sshd", "-T", "-C", "user=opsadmin,host=localhost,addr=127.0.0.1"], stdout_file = "sshd-T-hardened.synthetic.txt", replace = [["passwordauthentication no", "passwordauthentication yes"]] },
+]
+
+[[scenario]]
+name = "OpenSSH older than 8.7 reports challengeresponseauthentication"
+expect = "PASS"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["sshd", "-T"], stdout_file = "sshd-T-hardened.synthetic.txt", replace = [["kbdinteractiveauthentication no", "challengeresponseauthentication no"]] },
+]
+
+[[scenario]]
+name = "sshd not installed"
+expect = "NA"
+call = [ { op = "cmd", argv = ["sshd", "-T"], missing = true } ]
+
+[[scenario]]
+name = "not root: sshd -T cannot read host keys"
+expect = "UNKNOWN"
+summary_contains = "exited 1"
+call = [ { op = "cmd", argv = ["sshd", "-T"], returncode = 1, stderr = "sshd: no hostkeys available -- exiting.\n" } ]

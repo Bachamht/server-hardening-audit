@@ -1,0 +1,15 @@
+[[scenario]]
+name = "all passwords set or locked"
+expect = "PASS"
+call = [ { op = "derive", deriver = "shadow_empty_passwords", path = "/etc/shadow", content = "root:*:19000:0:99999:7:::\ndaemon:*:19000:0:99999:7:::\nadmin:!:19000:0:99999:7:::\n" } ]
+
+[[scenario]]
+name = "an account with an empty password field"
+expect = "FAIL"
+summary_contains = "guest"
+call = [ { op = "derive", deriver = "shadow_empty_passwords", path = "/etc/shadow", content = "root:*:19000:0:99999:7:::\nguest::19000:0:99999:7:::\n" } ]
+
+[[scenario]]
+name = "not root"
+expect = "UNKNOWN"
+call = [ { op = "derive", deriver = "shadow_empty_passwords", path = "/etc/shadow", error = "[Errno 13] Permission denied: '/etc/shadow'", error_kind = "permission" } ]

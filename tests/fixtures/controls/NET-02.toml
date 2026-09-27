@@ -1,0 +1,33 @@
+[profile]
+public_ports = [22, 80, 443]
+
+[[scenario]]
+name = "web host: only 22/80/443 non-loopback; DHCP client exempt"
+expect = "PASS"
+call = [
+  { op = "cmd", argv = ["ss", "-tlnpH"], stdout_file = "ss-tcp-webhost.synthetic.txt" },
+  { op = "cmd", argv = ["ss", "-ulnpH"], stdout_file = "ss-udp-webhost.synthetic.txt" },
+]
+
+[[scenario]]
+name = "database listening on all interfaces"
+expect = "FAIL"
+summary_contains = "tcp/5432"
+call = [
+  { op = "cmd", argv = ["ss", "-tlnpH"], stdout_file = "ss-tcp-webhost.synthetic.txt", replace = [["127.0.0.1:5432", "0.0.0.0:5432"]] },
+  { op = "cmd", argv = ["ss", "-ulnpH"], stdout_file = "ss-udp-webhost.synthetic.txt" },
+]
+
+[[scenario]]
+name = "docker-proxy publishes an app port on IPv6 wildcard"
+expect = "FAIL"
+summary_contains = "docker-proxy"
+call = [
+  { op = "cmd", argv = ["ss", "-tlnpH"], stdout = "LISTEN 0 4096 [::]:3000 [::]:* users:((\"docker-proxy\",pid=2211,fd=4))\nLISTEN 0 4096 0.0.0.0:22 0.0.0.0:* users:((\"sshd\",pid=801,fd=3))\n" },
+  { op = "cmd", argv = ["ss", "-ulnpH"], stdout = "" },
+]
+
+[[scenario]]
+name = "ss missing"
+expect = "UNKNOWN"
+call = [ { op = "cmd", argv = ["ss", "-tlnpH"], missing = true } ]

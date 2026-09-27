@@ -1,0 +1,38 @@
+[profile]
+tls_domains = ["site-a.example", "site-b.example"]
+
+[[scenario]]
+name = "both certificates valid for 60+ days"
+expect = "PASS"
+call = [
+  { op = "tls", sni = "site-a.example", days_left = 75 },
+  { op = "tls", sni = "site-b.example", days_left = 62 },
+]
+
+[[scenario]]
+name = "one certificate expires in 5 days"
+expect = "FAIL"
+summary_contains = "site-b.example: expires in 5"
+call = [
+  { op = "tls", sni = "site-a.example", days_left = 75 },
+  { op = "tls", sni = "site-b.example", days_left = 5 },
+]
+
+[[scenario]]
+name = "hostname mismatch"
+expect = "FAIL"
+summary_contains = "verification failed"
+call = [
+  { op = "tls", sni = "site-a.example", days_left = 75 },
+  { op = "tls", sni = "site-b.example", verified = false, error = "certificate verification failed: Hostname mismatch", error_kind = "verify" },
+]
+
+[[scenario]]
+name = "no TLS domains declared"
+expect = "NA"
+profile = { tls_domains = [] }
+
+[[scenario]]
+name = "nothing listening on 443"
+expect = "UNKNOWN"
+call = [ { op = "tls", sni = "site-a.example", error = "[Errno 111] Connection refused", error_kind = "failed" } ]

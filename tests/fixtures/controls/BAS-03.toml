@@ -1,0 +1,20 @@
+[[scenario]]
+name = "timesyncd synchronised"
+expect = "PASS"
+call = [
+  { op = "cmd", argv = ["timedatectl", "show"], stdout = "Timezone=Etc/UTC\nLocalRTC=no\nCanNTP=yes\nNTP=yes\nNTPSynchronized=yes\nTimeUSec=Sun 2026-09-20 12:00:00 UTC\n" },
+  { op = "cmd", argv = ["systemctl", "is-active", "systemd-timesyncd", "chrony", "chronyd", "ntp", "ntpsec"], returncode = 3, stdout = "active\ninactive\ninactive\ninactive\ninactive\n" },
+]
+
+[[scenario]]
+name = "NTP disabled"
+expect = "FAIL"
+call = [
+  { op = "cmd", argv = ["timedatectl", "show"], stdout = "Timezone=Etc/UTC\nNTP=no\nNTPSynchronized=no\n" },
+  { op = "cmd", argv = ["systemctl", "is-active", "systemd-timesyncd", "chrony", "chronyd", "ntp", "ntpsec"], returncode = 3, stdout = "inactive\ninactive\ninactive\ninactive\ninactive\n" },
+]
+
+[[scenario]]
+name = "inside a container without systemd"
+expect = "UNKNOWN"
+call = [ { op = "cmd", argv = ["timedatectl", "show"], returncode = 1, stderr = "System has not been booted with systemd as init system (PID 1). Can't operate.\n" } ]

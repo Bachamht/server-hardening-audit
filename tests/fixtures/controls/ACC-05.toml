@@ -1,0 +1,44 @@
+[shared.base]
+call = [
+  { op = "read", path = "/etc/sudoers", content = "Defaults\tenv_reset\nroot\tALL=(ALL:ALL) ALL\n%sudo\tALL=(ALL:ALL) ALL\n@includedir /etc/sudoers.d\n" },
+  { op = "glob", pattern = "/etc/sudoers.d/*", matches = [ { path = "/etc/sudoers.d/README" } ] },
+  { op = "read", path = "/etc/sudoers.d/README", content = "# files in this directory are read by sudo\n" },
+  { op = "read", path = "/etc/group", content = "root:x:0:\nsudo:x:27:admin\n" },
+]
+
+[profile]
+admin_users = ["admin"]
+service_users = ["deploy"]
+
+[[scenario]]
+name = "stock sudoers"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "cloud-init grants NOPASSWD ALL to an undeclared default user"
+expect = "FAIL"
+summary_contains = "ubuntu"
+use = ["base"]
+call = [
+  { op = "glob", pattern = "/etc/sudoers.d/*", matches = [ { path = "/etc/sudoers.d/90-cloud-init-users" }, { path = "/etc/sudoers.d/README" } ] },
+  { op = "read", path = "/etc/sudoers.d/90-cloud-init-users", content = "# Created by cloud-init\nubuntu ALL=(ALL) NOPASSWD:ALL\n" },
+]
+
+[[scenario]]
+name = "NOPASSWD grant in a file sudo ignores (name contains a dot) does not count"
+expect = "PASS"
+use = ["base"]
+call = [
+  { op = "glob", pattern = "/etc/sudoers.d/*", matches = [ { path = "/etc/sudoers.d/deploy.disabled" }, { path = "/etc/sudoers.d/README" } ] },
+]
+
+[[scenario]]
+name = "service account gets NOPASSWD ALL via group"
+expect = "FAIL"
+summary_contains = "deploy (service account)"
+use = ["base"]
+call = [
+  { op = "read", path = "/etc/sudoers", content = "root ALL=(ALL:ALL) ALL\n%deployers ALL=(ALL) \\\n    NOPASSWD: ALL\n" },
+  { op = "read", path = "/etc/group", content = "root:x:0:\ndeployers:x:2000:deploy\n" },
+]

@@ -1,0 +1,59 @@
+[profile]
+backup_paths = ["/var/backups/app"]
+rpo_hours = 24
+backup_offsite_required = false
+
+[shared.base]
+call = [
+  { op = "derive", deriver = "cron_schedules", path = "/etc/crontab", content = "SHELL=/bin/sh\n17 * * * * root cd / && run-parts --report /etc/cron.hourly\n" },
+  { op = "glob", pattern = "/etc/cron.d/*", matches = [ { path = "/etc/cron.d/app-backup" } ] },
+  { op = "derive", deriver = "cron_schedules", path = "/etc/cron.d/app-backup", content = "PGPASSWORD=do-not-store-me\n30 3 * * * root /usr/local/bin/pg_dump-app.sh && find /var/backups/app -mtime +14 -delete\n" },
+  { op = "glob", pattern = "/var/spool/cron/crontabs/*", matches = [] },
+  { op = "cmd", argv = ["systemctl", "list-timers", "--all", "--no-legend", "--plain"], stdout = "Sun 2026-09-20 00:00:00 UTC 12h left Sat 2026-09-19 00:00:00 UTC 11h ago logrotate.timer logrotate.service\n" },
+  { op = "glob", pattern = "/var/backups/app/*", matches = [
+      { path = "/var/backups/app/app-2026-09-19.dump", age_hours = 32, size = 39845888 },
+      { path = "/var/backups/app/app-2026-09-20.dump", age_hours = 8, size = 39911424 } ] },
+  { op = "glob", pattern = "/var/backups/app/*/*", matches = [] },
+]
+
+[[scenario]]
+name = "nightly dump with pruning, newest 8h old"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "same, but off-host copy required: needs attestation"
+expect = "MANUAL"
+use = ["base"]
+profile = { backup_offsite_required = true }
+
+[[scenario]]
+name = "newest backup older than the RPO"
+expect = "FAIL"
+summary_contains = "age of newest backup"
+use = ["base"]
+call = [
+  { op = "glob", pattern = "/var/backups/app/*", matches = [ { path = "/var/backups/app/app-2026-09-01.dump", age_hours = 460 } ] },
+]
+
+[[scenario]]
+name = "no schedule at all"
+expect = "FAIL"
+use = ["base"]
+call = [
+  { op = "glob", pattern = "/etc/cron.d/*", matches = [] },
+]
+
+[[scenario]]
+name = "retention not visible from schedules"
+expect = "UNKNOWN"
+summary_contains = "retention"
+use = ["base"]
+call = [
+  { op = "derive", deriver = "cron_schedules", path = "/etc/cron.d/app-backup", content = "30 3 * * * root /usr/local/bin/backup.sh\n" },
+]
+
+[[scenario]]
+name = "no backup_paths declared"
+expect = "UNKNOWN"
+profile = { backup_paths = [] }

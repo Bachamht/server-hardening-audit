@@ -1,0 +1,15 @@
+[[scenario]]
+name = "report five days old"
+expect = "PASS"
+call = [ { op = "derive", deriver = "lynis_report", path = "/var/log/lynis-report.dat", content_file = "lynis-report.synthetic.txt" } ]
+
+[[scenario]]
+name = "report from last year"
+expect = "FAIL"
+call = [ { op = "derive", deriver = "lynis_report", path = "/var/log/lynis-report.dat", content_file = "lynis-report.synthetic.txt", replace = [["report_datetime_end=2026-09-15", "report_datetime_end=2025-06-15"]] } ]
+
+[[scenario]]
+name = "Lynis never run"
+expect = "UNKNOWN"
+summary_contains = "operator action"
+call = [ { op = "derive", deriver = "lynis_report", path = "/var/log/lynis-report.dat", missing = true } ]

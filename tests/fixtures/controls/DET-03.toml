@@ -1,0 +1,19 @@
+[shared.base]
+call = [
+  { op = "cmd", argv = ["systemctl", "is-active", "auditd"], stdout = "active\n" },
+  { op = "cmd", argv = ["dpkg-query", "-W", "-f", "${Package}\t${db:Status-Abbrev}\t${Version}\n", "auditd", "aide", "debsums"], returncode = 1, stdout = "auditd\tii \t1:3.1.2-2.1build1\n", stderr = "dpkg-query: no packages found matching aide\ndpkg-query: no packages found matching debsums\n" },
+]
+
+[[scenario]]
+name = "auditd active"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "neither auditd nor AIDE"
+expect = "FAIL"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["systemctl", "is-active", "auditd"], returncode = 4, stdout = "inactive\n" },
+  { op = "cmd", argv = ["dpkg-query", "-W", "-f", "${Package}\t${db:Status-Abbrev}\t${Version}\n", "auditd", "aide", "debsums"], returncode = 1, stdout = "", stderr = "dpkg-query: no packages found matching auditd\n" },
+]

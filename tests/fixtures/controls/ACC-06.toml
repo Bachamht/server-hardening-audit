@@ -1,0 +1,30 @@
+[shared.base]
+call = [
+  { op = "cmd", argv = ["sshd", "-T"], stdout_file = "sshd-T-hardened.synthetic.txt" },
+  { op = "read", path = "/etc/passwd", content = "root:x:0:0:root:/root:/bin/bash\nadmin:x:1000:1000::/home/admin:/bin/bash\n" },
+  { op = "glob", pattern = "/root/.ssh/authorized_keys*", matches = [] },
+  { op = "glob", pattern = "/home/admin/.ssh/authorized_keys*", matches = [ { path = "/home/admin/.ssh/authorized_keys", mode = "0600", owner = "admin" } ] },
+  { op = "derive", deriver = "authorized_keys", path = "/home/admin/.ssh/authorized_keys", content_file = "authorized_keys-good.synthetic.txt" },
+]
+
+[[scenario]]
+name = "key-only SSH is a single factor"
+expect = "FAIL"
+summary_contains = "mfa_enforced"
+use = ["base"]
+
+[[scenario]]
+name = "sshd requires publickey plus keyboard-interactive"
+expect = "PASS"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["sshd", "-T"], stdout_file = "sshd-T-hardened.synthetic.txt", replace = [["authenticationmethods any", "authenticationmethods publickey,keyboard-interactive"]] },
+]
+
+[[scenario]]
+name = "every key is a FIDO security key"
+expect = "PASS"
+use = ["base"]
+call = [
+  { op = "derive", deriver = "authorized_keys", path = "/home/admin/.ssh/authorized_keys", content = "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29t admin@yubikey\n" },
+]

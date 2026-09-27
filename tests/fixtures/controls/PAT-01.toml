@@ -1,0 +1,48 @@
+[shared.base]
+call = [
+  { op = "cmd", argv = ["dpkg-query", "-W", "-f", "${Package}\t${db:Status-Abbrev}\t${Version}\n", "unattended-upgrades"], stdout = "unattended-upgrades\tii \t2.9.1+nmu4ubuntu1\n" },
+  { op = "glob", pattern = "/etc/apt/apt.conf.d/*", matches = [ { path = "/etc/apt/apt.conf.d/20auto-upgrades" }, { path = "/etc/apt/apt.conf.d/50unattended-upgrades" } ] },
+  { op = "read", path = "/etc/apt/apt.conf.d/20auto-upgrades", content = "APT::Periodic::Update-Package-Lists \"1\";\nAPT::Periodic::Unattended-Upgrade \"1\";\n" },
+  { op = "read", path = "/etc/apt/apt.conf.d/50unattended-upgrades", content = "Unattended-Upgrade::Allowed-Origins {\n  \"${distro_id}:${distro_codename}-security\";\n};\n" },
+  { op = "cmd", argv = ["systemctl", "is-enabled", "apt-daily.timer", "apt-daily-upgrade.timer"], stdout = "enabled\nenabled\n" },
+  { op = "stat", path = "/var/lib/apt/periodic/unattended-upgrades-stamp", age_hours = 6 },
+  { op = "derive", deriver = "unattended_upgrades_log", path = "/var/log/unattended-upgrades/unattended-upgrades.log", content_file = "unattended-upgrades-log.synthetic.txt" },
+]
+
+[[scenario]]
+name = "enabled, timers on, ran this morning"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "installed but switched off in 20auto-upgrades"
+expect = "FAIL"
+summary_contains = "enabled"
+use = ["base"]
+call = [
+  { op = "read", path = "/etc/apt/apt.conf.d/20auto-upgrades", content = "APT::Periodic::Update-Package-Lists \"1\";\nAPT::Periodic::Unattended-Upgrade \"0\";\n" },
+]
+
+[[scenario]]
+name = "enabled but has not run for 9 days"
+expect = "FAIL"
+summary_contains = "hours since unattended-upgrades last ran"
+use = ["base"]
+call = [
+  { op = "stat", path = "/var/lib/apt/periodic/unattended-upgrades-stamp", age_hours = 216 },
+  { op = "derive", deriver = "unattended_upgrades_log", path = "/var/log/unattended-upgrades/unattended-upgrades.log", content = "2026-09-11 06:00:00,000 INFO Starting unattended upgrades script\n" },
+]
+
+[[scenario]]
+name = "package not installed"
+expect = "FAIL"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["dpkg-query", "-W", "-f", "${Package}\t${db:Status-Abbrev}\t${Version}\n", "unattended-upgrades"], returncode = 1, stderr = "dpkg-query: no packages found matching unattended-upgrades\n" },
+]
+
+[[scenario]]
+name = "RHEL family: not implemented in v1"
+expect = "UNKNOWN"
+os = "rocky-9"
+summary_contains = "no implementation"

@@ -1,0 +1,33 @@
+[shared.base]
+call = [
+  { op = "read", path = "/etc/passwd", content = "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nadmin:x:1000:1000::/home/admin:/bin/bash\n" },
+  { op = "glob", pattern = "/root/.ssh/authorized_keys*", matches = [] },
+  { op = "glob", pattern = "/home/admin/.ssh/authorized_keys*", matches = [ { path = "/home/admin/.ssh/authorized_keys", mode = "0600", owner = "admin" } ] },
+  { op = "derive", deriver = "authorized_keys", path = "/home/admin/.ssh/authorized_keys", content_file = "authorized_keys-good.synthetic.txt" },
+]
+
+[[scenario]]
+name = "one admin with ed25519 and RSA-3072 keys, mode 0600"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "weak RSA key, unparseable line, world-readable file, authorized_keys2"
+expect = "FAIL"
+summary_contains = "1024 bits"
+use = ["base"]
+call = [
+  { op = "glob", pattern = "/home/admin/.ssh/authorized_keys*", matches = [
+      { path = "/home/admin/.ssh/authorized_keys", mode = "0644", owner = "admin" },
+      { path = "/home/admin/.ssh/authorized_keys2", mode = "0600", owner = "admin" } ] },
+  { op = "derive", deriver = "authorized_keys", path = "/home/admin/.ssh/authorized_keys", content_file = "authorized_keys-bad.synthetic.txt" },
+  { op = "derive", deriver = "authorized_keys", path = "/home/admin/.ssh/authorized_keys2", content = "" },
+]
+
+[[scenario]]
+name = "not root: authorized_keys unreadable"
+expect = "UNKNOWN"
+use = ["base"]
+call = [
+  { op = "derive", deriver = "authorized_keys", path = "/home/admin/.ssh/authorized_keys", error = "[Errno 13] Permission denied", error_kind = "permission" },
+]

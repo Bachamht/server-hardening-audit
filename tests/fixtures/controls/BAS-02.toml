@@ -1,0 +1,30 @@
+[shared.base]
+call = [
+  { op = "read", path = "/proc/sys/kernel/kptr_restrict", content = "1\n" },
+  { op = "read", path = "/proc/sys/kernel/dmesg_restrict", content = "1\n" },
+  { op = "read", path = "/proc/sys/kernel/randomize_va_space", content = "2\n" },
+  { op = "read", path = "/proc/sys/net/ipv4/tcp_syncookies", content = "1\n" },
+  { op = "read", path = "/proc/sys/net/ipv4/conf/all/rp_filter", content = "2\n" },
+  { op = "read", path = "/proc/sys/net/ipv4/conf/all/accept_redirects", content = "0\n" },
+  { op = "read", path = "/proc/sys/net/ipv4/conf/all/send_redirects", content = "0\n" },
+  { op = "read", path = "/proc/sys/net/ipv4/conf/all/accept_source_route", content = "0\n" },
+  { op = "read", path = "/proc/sys/net/ipv6/conf/all/accept_redirects", content = "0\n" },
+]
+
+[[scenario]]
+name = "hardened values"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "ICMP redirects accepted"
+expect = "FAIL"
+summary_contains = "accept_redirects"
+use = ["base"]
+call = [ { op = "read", path = "/proc/sys/net/ipv4/conf/all/accept_redirects", content = "1\n" } ]
+
+[[scenario]]
+name = "IPv6 absent: its key is optional"
+expect = "PASS"
+use = ["base"]
+call = [ { op = "read", path = "/proc/sys/net/ipv6/conf/all/accept_redirects", missing = true } ]

@@ -1,0 +1,95 @@
+[profile]
+public_ports = [22, 80, 443]
+
+[shared.ipv6on]
+call = [ { op = "read", path = "/proc/sys/net/ipv6/conf/all/disable_ipv6", content = "0\n" } ]
+
+[[scenario]]
+name = "ufw default deny, IPv6 managed, only public ports open to all"
+expect = "PASS"
+use = ["ipv6on"]
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], stdout_file = "ufw-status-verbose.synthetic.txt" },
+  { op = "read", path = "/etc/default/ufw", content = "IPV6=yes\nDEFAULT_INPUT_POLICY=\"DROP\"\n" },
+]
+
+[[scenario]]
+name = "ufw with IPV6=no leaves IPv6 unfiltered"
+expect = "FAIL"
+summary_contains = "default_deny_v6"
+use = ["ipv6on"]
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], stdout_file = "ufw-status-verbose.synthetic.txt" },
+  { op = "read", path = "/etc/default/ufw", content = "IPV6=no\n" },
+]
+
+[[scenario]]
+name = "ufw opens an undeclared port to everyone"
+expect = "FAIL"
+summary_contains = "5432"
+use = ["ipv6on"]
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], stdout_file = "ufw-status-verbose.synthetic.txt", replace = [["5432/tcp                   ALLOW IN    198.51.100.7", "5432/tcp                   ALLOW IN    Anywhere"]] },
+  { op = "read", path = "/etc/default/ufw", content = "IPV6=yes\n" },
+]
+
+[[scenario]]
+name = "ufw inactive, nftables policy drop"
+expect = "PASS"
+use = ["ipv6on"]
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], stdout = "Status: inactive\n" },
+  { op = "cmd", argv = ["firewall-cmd", "--state"], missing = true },
+  { op = "cmd", argv = ["nft", "list", "ruleset"], stdout_file = "nft-ruleset.synthetic.txt" },
+]
+
+[[scenario]]
+name = "no ufw or nft; iptables v4 drop but ip6tables accept"
+expect = "FAIL"
+use = ["ipv6on"]
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], missing = true },
+  { op = "cmd", argv = ["firewall-cmd", "--state"], missing = true },
+  { op = "cmd", argv = ["nft", "list", "ruleset"], missing = true },
+  { op = "cmd", argv = ["iptables", "-S"], stdout_file = "iptables-S-drop.synthetic.txt" },
+  { op = "cmd", argv = ["ip6tables", "-S"], stdout = "-P INPUT ACCEPT\n-P FORWARD ACCEPT\n-P OUTPUT ACCEPT\n" },
+]
+
+[[scenario]]
+name = "same, but IPv6 disabled on the host"
+expect = "PASS"
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], missing = true },
+  { op = "cmd", argv = ["firewall-cmd", "--state"], missing = true },
+  { op = "cmd", argv = ["nft", "list", "ruleset"], missing = true },
+  { op = "cmd", argv = ["iptables", "-S"], stdout_file = "iptables-S-drop.synthetic.txt" },
+  { op = "cmd", argv = ["ip6tables", "-S"], stdout = "-P INPUT ACCEPT\n" },
+  { op = "read", path = "/proc/sys/net/ipv6/conf/all/disable_ipv6", content = "1\n" },
+]
+
+[[scenario]]
+name = "firewalld with default target and an extra port"
+expect = "FAIL"
+summary_contains = "8080"
+os = "rocky-9"
+use = ["ipv6on"]
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], missing = true },
+  { op = "cmd", argv = ["firewall-cmd", "--state"], stdout = "running\n" },
+  { op = "cmd", argv = ["firewall-cmd", "--list-all"], stdout = "public (active)\n  target: default\n  icmp-block-inversion: no\n  interfaces: eth0\n  services: dhcpv6-client ssh http https\n  ports: 8080/tcp\n  protocols: \n" },
+]
+
+[[scenario]]
+name = "no firewall tooling at all"
+expect = "UNKNOWN"
+call = [
+  { op = "cmd", argv = ["ufw", "status", "verbose"], missing = true },
+  { op = "cmd", argv = ["firewall-cmd", "--state"], missing = true },
+  { op = "cmd", argv = ["nft", "list", "ruleset"], missing = true },
+  { op = "cmd", argv = ["iptables", "-S"], missing = true },
+]
+
+[[scenario]]
+name = "not root: ufw refuses"
+expect = "UNKNOWN"
+call = [ { op = "cmd", argv = ["ufw", "status", "verbose"], returncode = 1, stderr = "ERROR: You need to be root to run this script\n" } ]

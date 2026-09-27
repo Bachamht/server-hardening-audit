@@ -1,0 +1,28 @@
+[profile]
+max_image_age_days = 60
+
+[shared.base]
+call = [
+  { op = "cmd", argv = ["docker", "ps", "-q", "--no-trunc"], stdout = "5f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8\n6a1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8\n" },
+  { op = "cmd", argv = ["docker", "inspect", "--type", "container", "5f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8", "6a1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8"], stdout_file = "docker-inspect-webapp.synthetic.txt" },
+  { op = "cmd", argv = ["docker", "image", "inspect", "sha256:aa11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899", "sha256:bb11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899"], stdout_file = "docker-image-inspect.synthetic.txt" },
+]
+
+[[scenario]]
+name = "images built within 60 days"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "database image is 7 months old"
+expect = "FAIL"
+summary_contains = "postgres:16-alpine"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["docker", "image", "inspect", "sha256:aa11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899", "sha256:bb11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899"], stdout_file = "docker-image-inspect.synthetic.txt", replace = [["2026-08-15T10:00:00", "2026-02-15T10:00:00"]] },
+]
+
+[[scenario]]
+name = "docker not installed"
+expect = "NA"
+call = [ { op = "cmd", argv = ["docker", "ps", "-q", "--no-trunc"], missing = true } ]

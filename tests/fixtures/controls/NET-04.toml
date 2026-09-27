@@ -1,0 +1,3 @@
+[[scenario]]
+name = "manual: needs an external probe attestation"
+expect = "MANUAL"

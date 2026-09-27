@@ -1,0 +1,28 @@
+[profile]
+disk_paths = ["/", "/var"]
+
+[[scenario]]
+name = "plenty of space and inodes"
+expect = "PASS"
+call = [
+  { op = "statvfs", path = "/", blocks = 10000000, bavail = 6000000, files = 2000000, favail = 1800000 },
+  { op = "statvfs", path = "/var", blocks = 10000000, bavail = 3000000, files = 2000000, favail = 1500000 },
+]
+
+[[scenario]]
+name = "/var at 92% used"
+expect = "FAIL"
+summary_contains = "/var: 8.0% space free"
+call = [
+  { op = "statvfs", path = "/", blocks = 10000000, bavail = 6000000, files = 2000000, favail = 1800000 },
+  { op = "statvfs", path = "/var", blocks = 10000000, bavail = 800000, files = 2000000, favail = 1500000 },
+]
+
+[[scenario]]
+name = "inodes exhausted while space is free"
+expect = "FAIL"
+summary_contains = "inodes"
+call = [
+  { op = "statvfs", path = "/", blocks = 10000000, bavail = 6000000, files = 2000000, favail = 20000 },
+  { op = "statvfs", path = "/var", blocks = 10000000, bavail = 6000000, files = 0, favail = 0 },
+]

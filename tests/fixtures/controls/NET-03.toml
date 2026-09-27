@@ -1,0 +1,34 @@
+[profile]
+public_ports = [22, 80, 443]
+
+[[scenario]]
+name = "app published on loopback only; database publishes nothing"
+expect = "PASS"
+call = [
+  { op = "cmd", argv = ["docker", "ps", "-q", "--no-trunc"], stdout = "5f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8\n6a1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8\n" },
+  { op = "cmd", argv = ["docker", "inspect", "--type", "container", "5f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8", "6a1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8"], stdout_file = "docker-inspect-webapp.synthetic.txt" },
+]
+
+[[scenario]]
+name = "app published on 0.0.0.0 bypasses the firewall"
+expect = "FAIL"
+summary_contains = "webapp: 0.0.0.0:3000"
+call = [
+  { op = "cmd", argv = ["docker", "ps", "-q", "--no-trunc"], stdout = "5f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8\n6a1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8\n" },
+  { op = "cmd", argv = ["docker", "inspect", "--type", "container", "5f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8", "6a1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8"], stdout_file = "docker-inspect-webapp.synthetic.txt", replace = [["\"HostIp\": \"127.0.0.1\"", "\"HostIp\": \"0.0.0.0\""]] },
+]
+
+[[scenario]]
+name = "docker installed, no running containers"
+expect = "PASS"
+call = [ { op = "cmd", argv = ["docker", "ps", "-q", "--no-trunc"], stdout = "" } ]
+
+[[scenario]]
+name = "docker not installed"
+expect = "NA"
+call = [ { op = "cmd", argv = ["docker", "ps", "-q", "--no-trunc"], missing = true } ]
+
+[[scenario]]
+name = "docker daemon stopped"
+expect = "NA"
+call = [ { op = "cmd", argv = ["docker", "ps", "-q", "--no-trunc"], returncode = 1, stderr = "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?\n" } ]

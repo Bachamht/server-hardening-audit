@@ -1,0 +1,37 @@
+[shared.base]
+call = [
+  { op = "cmd", argv = ["systemctl", "is-active", "fail2ban", "sshguard", "crowdsec"], returncode = 3, stdout = "active\ninactive\ninactive\n" },
+  { op = "cmd", argv = ["fail2ban-client", "status"], stdout_file = "fail2ban-status.synthetic.txt" },
+  { op = "cmd", argv = ["fail2ban-client", "status", "sshd"], stdout_file = "fail2ban-status-sshd.synthetic.txt" },
+  { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "bantime"], stdout = "3600\n" },
+  { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "findtime"], stdout = "600\n" },
+  { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "maxretry"], stdout = "5\n" },
+  { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "backend"], stdout = "systemd\n" },
+  { op = "derive", deriver = "fail2ban_log_bans", path = "/var/log/fail2ban.log", content_file = "fail2ban-log.synthetic.txt" },
+  { op = "derive", deriver = "fail2ban_log_bans", path = "/var/log/fail2ban.log.1", missing = true },
+]
+
+[[scenario]]
+name = "fail2ban active with an sshd jail that bans"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "jail active but has never banned: wrong log source"
+expect = "FAIL"
+summary_contains = "SSH bans observed = 0"
+use = ["base"]
+call = [
+  { op = "cmd", argv = ["fail2ban-client", "status", "sshd"], stdout_file = "fail2ban-status-sshd.synthetic.txt", replace = [["Total banned:\t212", "Total banned:\t0"]] },
+  { op = "derive", deriver = "fail2ban_log_bans", path = "/var/log/fail2ban.log", content = "2026-09-18 03:12:44,101 fail2ban.server [812]: INFO Starting Fail2ban v1.0.2\n" },
+]
+
+[[scenario]]
+name = "no brute-force protection running"
+expect = "FAIL"
+call = [ { op = "cmd", argv = ["systemctl", "is-active", "fail2ban", "sshguard", "crowdsec"], returncode = 4, stdout = "inactive\ninactive\ninactive\n" } ]
+
+[[scenario]]
+name = "CrowdSec instead of fail2ban: not measured in v1"
+expect = "UNKNOWN"
+call = [ { op = "cmd", argv = ["systemctl", "is-active", "fail2ban", "sshguard", "crowdsec"], returncode = 3, stdout = "inactive\ninactive\nactive\n" } ]
