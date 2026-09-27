@@ -297,3 +297,64 @@ def check(argv: Sequence[str]) -> Decision:
     specific = [r for r in reasons if r != "subcommand not allowed"]
     detail = specific[0] if specific else "subcommand not allowed"
     return Decision(False, f"{prog}: {detail}: {' '.join(argv)!r}")
+
+
+# --- File reads -----------------------------------------------------------
+#
+# Raw reads copy file content into the evidence pack, so they are
+# default-deny too. Sensitive or bulky sources (shadow, authorized_keys,
+# crontabs, logs, Lynis reports) are only reachable through a named deriver that keeps a
+# derived summary, never the content (see derive.py).
+
+READ_PREFIXES: tuple[str, ...] = (
+    "/etc/os-release",
+    "/usr/lib/os-release",
+    "/etc/ssh/sshd_config",
+    "/etc/passwd",
+    "/etc/group",
+    "/etc/sudoers",
+    "/etc/apt/apt.conf.d/",
+    "/etc/default/ufw",
+    "/etc/systemd/journald.conf",
+    "/usr/lib/systemd/journald.conf.d/",
+    "/run/systemd/journald.conf.d/",
+    "/proc/sys/",
+    "/sys/module/apparmor/parameters/",
+    "/sys/kernel/security/apparmor/profiles",
+    "/sys/fs/selinux/enforce",
+    "/var/run/reboot-required",
+    "/run/reboot-required",
+)
+
+READ_DENY = re.compile(
+    r"(^/etc/(g?shadow|security/opasswd)"
+    r"|/\.ssh/"
+    r"|^/etc/ssh/ssh_host_[^/]*_key$"
+    r"|^/etc/ssl/private/"
+    r"|\.(env|pem|key|p12|pfx)$"
+    r"|(^|/)\.env(\.|$)"
+    r"|/\.\.(/|$))"
+)
+
+
+def check_read(path: str) -> Decision:
+    """Decide whether the raw content of ``path`` may be read and stored."""
+    if not isinstance(path, str) or not path.startswith("/") or "\x00" in path:
+        return Decision(False, f"path must be absolute, got {path!r}")
+    if READ_DENY.search(path):
+        return Decision(False, f"{path}: sensitive source, raw read refused")
+    if not path.startswith(READ_PREFIXES):
+        return Decision(False, f"{path}: not on the read allowlist")
+    return Decision(True, "allowed")
+
+
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def check_connect(host: str, port: int) -> Decision:
+    """The engine only opens TLS connections to the audited host itself."""
+    if host not in LOOPBACK_HOSTS:
+        return Decision(False, f"connection to {host!r} refused: loopback only")
+    if not isinstance(port, int) or not 0 < port < 65536:
+        return Decision(False, f"invalid port {port!r}")
+    return Decision(True, "allowed")
