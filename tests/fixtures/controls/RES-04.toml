@@ -1,0 +1,50 @@
+[profile]
+backup_paths = ["/var/backups/app"]
+
+[shared.base]
+call = [
+  { op = "stat", path = "/var/backups/app", kind = "dir", mode = "0750", owner = "root", group = "backup" },
+  { op = "glob", pattern = "/var/backups/app/*", matches = [
+      { path = "/var/backups/app/app-2026-09-19.dump", mode = "0640", owner = "root", group = "backup" },
+      { path = "/var/backups/app/app-2026-09-20.dump", mode = "0600", owner = "root" } ] },
+  { op = "glob", pattern = "/var/backups/app/*/*", matches = [] },
+]
+
+[[scenario]]
+name = "dumps 0600/0640, directory 0750"
+expect = "PASS"
+use = ["base"]
+
+[[scenario]]
+name = "dump written with the default umask is world-readable"
+expect = "FAIL"
+summary_contains = "0644"
+use = ["base"]
+call = [
+  { op = "glob", pattern = "/var/backups/app/*", matches = [
+      { path = "/var/backups/app/app-2026-09-20.dump", mode = "0644", owner = "root" } ] },
+]
+
+[[scenario]]
+name = "backup directory writable by everyone"
+expect = "FAIL"
+summary_contains = "create or delete"
+use = ["base"]
+call = [ { op = "stat", path = "/var/backups/app", kind = "dir", mode = "0777" } ]
+
+[[scenario]]
+name = "sticky world-writable directory is acceptable"
+expect = "PASS"
+use = ["base"]
+call = [ { op = "stat", path = "/var/backups/app", kind = "dir", mode = "1777" } ]
+
+[[scenario]]
+name = "declared backup path missing"
+expect = "UNKNOWN"
+use = ["base"]
+call = [ { op = "stat", path = "/var/backups/app", exists = false } ]
+
+[[scenario]]
+name = "no backup_paths declared"
+expect = "UNKNOWN"
+profile = { backup_paths = [] }

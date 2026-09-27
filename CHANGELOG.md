@@ -8,7 +8,7 @@ First version.
 
 ### Added
 
-- `audit`: 24 controls across access, network, patching, detection,
+- `audit`: 25 controls across access, network, patching, detection,
   resilience and baseline, run read-only on the host with evidence and a
   sha256 manifest; `--replay` re-evaluates saved evidence.
 - Default-deny allowlists for commands and file reads; derived-only evidence

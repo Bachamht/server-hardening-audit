@@ -13,6 +13,7 @@ from . import (
     derived,
     listing,
     run,
+    stat,
     unknown,
 )
 
@@ -88,3 +89,36 @@ def disk_headroom(ctx: CollectContext) -> dict[str, Any]:
         if inodes is not None and inodes < min_inodes:
             violations.append(f"{path}: {inodes}% inodes free (< {min_inodes}%)")
     return {"mounts": mounts, "violations": violations}
+
+
+@collector("backup_permissions", plan=[
+    stat("<backup_path>", "each profile backup_paths entry"),
+    listing("<backup_path>/*", "and <backup_path>/*/*; metadata only, never content"),
+])
+def backup_permissions(ctx: CollectContext) -> dict[str, Any]:
+    """Other accounts must not read backups, and must not change or delete them."""
+    paths = ctx.profile["backup_paths"]
+    if not paths:
+        raise Undetermined("profile declares no backup_paths")
+    violations, checked = [], 0
+    for base in paths:
+        root = ctx.stat(base)
+        if not root["exists"]:
+            raise Undetermined(f"backup path {base} does not exist")
+        entries = [root]
+        for pattern in (f"{base.rstrip('/')}/*", f"{base.rstrip('/')}/*/*"):
+            entries += ctx.glob(pattern)
+        for e in entries:
+            if e["kind"] == "dir":
+                if e["mode"] & 0o022 and not e["mode"] & 0o1000:
+                    violations.append(f"{e['path']}: directory mode {e['mode']:04o} lets other "
+                                      "accounts create or delete files")
+            elif e["kind"] == "file":
+                checked += 1
+                if e["mode"] & 0o007:
+                    violations.append(f"{e['path']}: mode {e['mode']:04o} gives all accounts "
+                                      "access")
+                elif e["mode"] & 0o020:
+                    violations.append(f"{e['path']}: mode {e['mode']:04o} is group-writable "
+                                      f"(group {e['group']})")
+    return {"files_checked": checked, "violations": violations}

@@ -661,6 +661,39 @@ iso27001_2022 = ["A.8.13"]
 essential_eight = ["RB-ML1-02", "RB-ML1-04"]
 
 [[control]]
+id = "RES-04"
+title = "Backups are not readable or modifiable by other accounts"
+domain = "resilience"
+severity = "medium"
+
+[[control.check]]
+type = "collector"
+collector = "backup_permissions"
+name = "perms"
+
+[control.assert]
+op = "count_at_most"
+source = "perms.violations"
+max = 0
+description = "backup files or directories open to other accounts"
+
+[control.text]
+rationale = """
+A backup readable by every account leaks the whole data set to any
+compromised service; a backup directory that other accounts can write to
+lets ransomware running as one of them delete or overwrite it. Files must
+grant nothing to other accounts and must not be group-writable; directories
+must not let other accounts add or remove files. Only metadata is read.
+"""
+remediation = "chmod o-rwx and g-w on backup files (e.g. `chmod 0640`), and remove group/other write from backup directories; write backups with a restrictive umask (077)."
+disruptive = false
+limitations = "Covers backups under the declared backup_paths on this host; access to off-host copies is not checked."
+
+[control.refs]
+iso27001_2022 = ["A.8.13"]
+essential_eight = ["RB-ML1-05", "RB-ML1-06"]
+
+[[control]]
 id = "RES-03"
 title = "Disk space and inode headroom"
 domain = "resilience"

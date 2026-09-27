@@ -480,14 +480,16 @@ id = "RB-ML1-05"
 strategy = "RB"
 summary = "Unprivileged accounts cannot access other accounts' backups."
 applicability = "applicable"
-rationale = "Backup file permissions are listed in RES-01 evidence but not judged in this version."
+coverage = "partial"
+rationale = "File and directory permissions of on-host backups are checked (RES-04); access to off-host copies is not."
 
 [[requirement]]
 id = "RB-ML1-06"
 strategy = "RB"
 summary = "Unprivileged accounts cannot modify or delete backups."
 applicability = "applicable"
-rationale = "Backup file permissions are listed in RES-01 evidence but not judged in this version."
+coverage = "partial"
+rationale = "File and directory permissions of on-host backups are checked (RES-04); off-host copies are not."
 
 # --- Evidence collected towards higher levels (not assessed) ---------------------
 
