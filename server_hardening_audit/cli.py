@@ -14,7 +14,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from . import __version__, collectors, engine, evidence, frameworks, policy, redact, report
+from . import (
+    __version__,
+    attest,
+    collectors,
+    diffing,
+    engine,
+    evidence,
+    frameworks,
+    policy,
+    probe,
+    redact,
+    report,
+    scrub,
+)
 from .loader import ConfigError, Control, load_controls, load_profile
 from .runner import LiveRunner, ReplayRunner
 
@@ -177,10 +190,19 @@ def _load_run(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return run, doc
 
 
+def _with_attestations(doc: dict[str, Any], files: list[str]) -> dict[str, Any]:
+    if not files:
+        return doc
+    attestations, risks, records = attest.load(files)
+    doc, warnings = attest.apply(doc, attestations, risks, records)
+    for msg in warnings:
+        print(f"warning: {msg}", file=sys.stderr)
+    return doc
+
+
 def cmd_report(args: argparse.Namespace) -> int:
-    if args.attest:
-        raise ToolError("--attest is not available in this build yet")
     run, doc = _load_run(Path(args.run_dir))
+    doc = _with_attestations(doc, args.attest)
     if args.framework:
         fw = frameworks.load(args.framework, load_controls(args.controls))
         view = frameworks.evaluate(fw, doc)
@@ -218,10 +240,90 @@ def cmd_redact_check(args: argparse.Namespace) -> int:
     return 0
 
 
-def _not_yet(name: str):
-    def handler(args: argparse.Namespace) -> int:
-        raise ToolError(f"`{name}` is not available in this build yet")
-    return handler
+# --- probe / diff / scrub -------------------------------------------------------
+
+
+def _ports(text: str) -> list[int]:
+    ports = []
+    for part in text.split(","):
+        part = part.strip()
+        if "-" in part:
+            lo, hi = (int(x) for x in part.split("-", 1))
+            ports.extend(range(lo, hi + 1))
+        elif part:
+            ports.append(int(part))
+    if not ports or not all(0 < p < 65536 for p in ports) or len(ports) > 1024:
+        raise ToolError(f"invalid port list {text!r}")
+    return sorted(set(ports))
+
+
+def cmd_probe(args: argparse.Namespace) -> int:
+    print("probe: only probe hosts you are authorised to test.", file=sys.stderr)
+    public = None
+    tls_min_days = 14
+    if args.profile:
+        prof = load_profile(args.profile)
+        public, tls_min_days = prof["public_ports"], prof["tls_min_days"]
+    if args.public_ports:
+        public = _ports(args.public_ports)
+    ports = _ports(args.ports)
+    users = list(dict.fromkeys([args.ssh_user, "root"] if args.ssh_user else ["root"]))
+    if args.ssh_port not in ports:
+        users = []
+    domains = [d.strip() for d in (args.tls_domain or "").split(",") if d.strip()]
+    try:
+        result = probe.run_probe(args.host, ports, users, args.ssh_port, domains, args.timeout)
+    except OSError as exc:
+        raise ToolError(str(exc)) from exc
+    atts = probe.attestations(result, public, tls_min_days)
+    if public is None:
+        print("probe: no --profile or --public-ports given; NET-04 attestation not written",
+              file=sys.stderr)
+    out = Path(args.out)
+    probe.write(out, result, atts)
+    for fam, states in result["ports"].items():
+        opened = [p for p, s in states.items() if s == "open"]
+        print(f"{fam} {result['addresses'][fam]}: open {', '.join(opened) or 'none'}")
+    for s in result["ssh"]:
+        print(f"ssh {s['user']}: {', '.join(s.get('methods') or []) or s.get('error')}")
+    for a in atts:
+        print(f"{a['control']}: {a['verdict']}")
+    print(f"{out / 'probe.json'}\n{out / 'probe-attestation.toml'}")
+    return 0
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    _, a = _load_run(Path(args.run_a))
+    _, b = _load_run(Path(args.run_b))
+    d = diffing.compare(a, b)
+    _emit(json.dumps(d, indent=2) + "\n" if args.format == "json"
+          else diffing.render_markdown(d), None)
+    return 0
+
+
+def cmd_scrub(args: argparse.Namespace) -> int:
+    run, doc = _load_run(Path(args.run_dir))
+    doc = _with_attestations(doc, args.attest)
+    try:
+        scrubber = scrub.Scrubber.from_map(Path(args.map).read_bytes(), args.map)
+    except OSError as exc:
+        raise ToolError(str(exc)) from exc
+    drop_ids = [x.strip().upper() for x in (args.drop_controls or "").split(",") if x.strip()]
+    try:
+        files = scrub.scrub_run(doc, run, scrubber, load_controls(args.controls), drop_ids,
+                                args.note)
+    except scrub.ScrubRefused as exc:
+        print(f"scrub refused: {exc}", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, content in files.items():
+        (out / name).write_text(content, encoding="utf-8")
+        print(out / name)
+    withheld = ", ".join(drop_ids) or "none"
+    print(f"scrub: {len(scrubber.replacements)} mapped values, "
+          f"{len(scrubber.addresses)} addresses replaced, withheld: {withheld}")
+    return 0
 
 
 # --- entry point ----------------------------------------------------------------
@@ -265,16 +367,33 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", metavar="FILE", help="write to FILE instead of stdout")
     s.set_defaults(fn=cmd_report)
 
-    s = sub.add_parser("probe", help="probe a host from outside (operator machine)")
+    s = sub.add_parser("probe", help="probe a host from outside (run on the operator machine)")
     s.add_argument("host")
-    s.set_defaults(fn=_not_yet("probe"))
+    s.add_argument("--ports", default="22,80,443", help="e.g. 22,80,443,3000-3001,5432")
+    s.add_argument("--ssh-user", help="user whose SSH methods to read (root is always read)")
+    s.add_argument("--ssh-port", type=int, default=22)
+    s.add_argument("--tls-domain", help="comma-separated domains to check on :443")
+    s.add_argument("--profile", help="profile whose public_ports are the intended exposure")
+    s.add_argument("--public-ports", help="intended public ports (overrides --profile)")
+    s.add_argument("--timeout", type=float, default=3.0, help="seconds per connection")
+    s.add_argument("--out", default="probe", help="output directory")
+    s.set_defaults(fn=cmd_probe)
+
     s = sub.add_parser("diff", help="compare two runs")
     s.add_argument("run_a")
     s.add_argument("run_b")
-    s.set_defaults(fn=_not_yet("diff"))
+    s.add_argument("--format", choices=["md", "json"], default="md")
+    s.set_defaults(fn=cmd_diff)
+
     s = sub.add_parser("scrub", help="produce a publishable copy of a run")
     s.add_argument("run_dir")
-    s.set_defaults(fn=_not_yet("scrub"))
+    s.add_argument("--map", required=True, help="private TOML map of values to replace")
+    s.add_argument("--out", required=True, help="output directory, e.g. examples/")
+    s.add_argument("--attest", action="append", default=[], metavar="FILE")
+    s.add_argument("--drop-controls", metavar="IDS", help="controls to withhold entirely")
+    s.add_argument("--note", help="line added under each document title")
+    s.add_argument("--controls", help="controls used for framework mapping (default: bundled)")
+    s.set_defaults(fn=cmd_scrub)
 
     s = sub.add_parser("redact-check", help="scan files for secrets before publishing")
     s.add_argument("path")

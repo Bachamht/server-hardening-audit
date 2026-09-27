@@ -35,7 +35,3 @@ def test_redact_check(tmp_path, capsys):
     assert cli.main(["redact-check", str(tmp_path)]) == 0
     (tmp_path / "bad.md").write_text("DATABASE_URL=postgres://u:pw@h/db\n")
     assert cli.main(["redact-check", str(tmp_path)]) == 1
-
-
-def test_unimplemented_commands_exit_3(capsys):
-    assert cli.main(["probe", "192.0.2.1"]) == 3

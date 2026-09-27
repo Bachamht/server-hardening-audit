@@ -241,7 +241,7 @@ def count_at_most(raw: dict[str, Any], ctx: Context) -> Outcome:
         text = f"no {what}" if not items else f"{len(items)} {what} (at most {limit} allowed)"
         return Outcome(PASS, text, {"count": len(items), "items": items[:50]})
     shown = ", ".join(str(i) for i in items[:5]) + (" ..." if len(items) > 5 else "")
-    return Outcome(FAIL, f"{len(items)} {what}: {shown}",
+    return Outcome(FAIL, f"{len(items)} {what} — {shown}",
                    {"count": len(items), "items": items[:50]})
 
 

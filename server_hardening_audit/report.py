@@ -113,6 +113,8 @@ def verdict_label(f: dict[str, Any]) -> str:
     ra = f.get("risk_acceptance")
     if ra and f["verdict"] == "FAIL":
         label += f" · risk accepted (review by {ra.get('review_by', '?')})"
+        if ra.get("expired"):
+            label += " · REVIEW OVERDUE"
     return label
 
 
@@ -135,6 +137,9 @@ def render_markdown(doc: dict[str, Any], run: dict[str, Any]) -> str:
     w(f"| Profile | {_cell(run['profile']['name'])} |")
     w(f"| Controls | {_cell(run['controls']['origin'])} · sha256 "
       f"`{run['controls']['sha256'][:16]}…` · {len(findings)} evaluated |")
+    for af in doc.get("attestation_files", []):
+        w(f"| Attestation | `{_cell(af['file'])}` · sha256 `{af['sha256'][:16]}…` · "
+          f"{af['attestations']} attestation(s), {af['risk_acceptances']} risk acceptance(s) |")
     priv = ("root" if host.get("euid") == 0
             else f"uid {host.get('euid')} (not root: expect UNKNOWN results)")
     w(f"| Privileges | {priv} |\n")
@@ -171,6 +176,23 @@ def render_markdown(doc: dict[str, Any], run: dict[str, Any]) -> str:
             w("- **Evidence:** " + ", ".join(f"`{e}`" for e in f["evidence"]))
         if f.get("instructions"):
             w(f"- **Operator procedure:** {' '.join(f['instructions'].split())}")
+        details = f.get("details", {})
+        for a in details.get("attestations", []):
+            w(f"- **Attested** {a['verdict']} by {a['performed_by']} at {a['performed_at']} "
+              f"(`{a['file']}`): {a['method']}")
+            if a.get("measurements"):
+                w("  - Measurements: " + ", ".join(f"{k} = {v}"
+                                                    for k, v in a["measurements"].items()))
+            for e in a.get("evidence", []):
+                digest = f"sha256 `{e['sha256'][:16]}…`" if e["sha256"] else "**file missing**"
+                w(f"  - Evidence: `{e['path']}` ({digest})")
+        if details.get("automated_result") and f["basis"] == "attested":
+            ar = details["automated_result"]
+            w(f"- **Automated result before attestation:** {ar['verdict']} — {ar['summary']}")
+        for c in details.get("corroboration", []):
+            agree = "agrees" if c["agrees"] else "**CONTRADICTS the host result**"
+            w(f"- **External check** ({c['source']}, {c['performed_at']}) {agree}: "
+              f"{c['verdict']} — {c['method']}")
         if f.get("rationale"):
             w(f"- **Why it matters:** {' '.join(f['rationale'].split())}")
         rem = f.get("remediation", {})
