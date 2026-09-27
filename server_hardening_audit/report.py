@@ -172,6 +172,8 @@ def render_markdown(doc: dict[str, Any], run: dict[str, Any]) -> str:
         w(f"**{f['title']}** — {f['severity']}, {f['domain']}\n")
         w(f"- **Verdict:** {verdict_label(f)}")
         w(f"- **Result:** {f['summary']}")
+        for h in f.get("details", {}).get("highlights", []):
+            w(f"- **Key fact:** {h}")
         if f.get("evidence"):
             w("- **Evidence:** " + ", ".join(f"`{e}`" for e in f["evidence"]))
         if f.get("instructions"):

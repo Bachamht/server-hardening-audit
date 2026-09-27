@@ -67,7 +67,13 @@ def auto_updates(ctx: CollectContext) -> dict[str, Any]:
     candidates = [t for t in (stamp.get("mtime") if stamp["exists"] else None, last_run) if t]
     activity: Any = ctx.age_hours(max(candidates)) if candidates else unknown(
         "no unattended-upgrades stamp or log entries found")
+    highlights = [f"last unattended-upgrades activity: {activity}h ago"
+                  if isinstance(activity, (int, float))
+                  else "no unattended-upgrades activity found",
+                  f"{log.get('upgrade_count', 0)} upgrade run(s) and {log.get('run_count', 0)} "
+                  "run(s) in the current log"]
     return {
+        "_highlights": highlights,
         "installed": installed, "enabled": enabled, "timer_enabled": timer_enabled,
         "timers": dict(zip(["apt-daily.timer", "apt-daily-upgrade.timer"], timers, strict=False)),
         "periodic": periodic, "last_activity_age_hours": activity,
@@ -102,7 +108,12 @@ def apt_backlog(ctx: CollectContext) -> dict[str, Any]:
     reboot = ctx.stat("/var/run/reboot-required")
     reboot_pkgs = (ctx.text("/var/run/reboot-required.pkgs") or "").split() if reboot["exists"] \
         else []
-    return {"lists_age_hours": lists_age, "lists_source": stamp["path"],
+    highlights = [f"package lists {lists_age}h old; {len(pkgs)} upgradable package(s)"]
+    if reboot["exists"]:
+        highlights.append(f"reboot required for {ctx.age_hours(reboot['mtime'])}h: "
+                          + (", ".join(sorted(set(reboot_pkgs))[:6]) or "unspecified"))
+    return {"_highlights": highlights,
+            "lists_age_hours": lists_age, "lists_source": stamp["path"],
             "security_upgrades": security, "upgradable_total": len(pkgs),
             "reboot_required": reboot["exists"],
             "reboot_required_age_hours": ctx.age_hours(reboot["mtime"]) if reboot["exists"]

@@ -135,8 +135,11 @@ def _run_checks(control: Control, runner: Runner, profile: dict[str, Any],
                 raise _Stop(NA, str(exc)) from exc
             except collectors.Undetermined as exc:
                 raise _Stop(UNKNOWN, str(exc)) from exc
+            highlights = value.pop("_highlights", None) if isinstance(value, dict) else None
             facts[check.name] = value
             collected[check.name] = value
+            if highlights:
+                collected.setdefault("_highlights", []).extend(highlights)
     return facts, exit_codes, collected
 
 
@@ -187,8 +190,10 @@ def evaluate(control: Control, runner: Runner, profile: dict[str, Any],
         finding.details = {"traceback": traceback.format_exc(limit=5)}
         return finding
     finding.verdict, finding.summary = outcome.verdict, outcome.summary
+    highlights = collected.pop("_highlights", [])
     finding.details = {"assertion": outcome.details, **(
-        {"collected": collected} if collected else {})}
+        {"collected": collected} if collected else {}),
+        **({"highlights": highlights} if highlights else {})}
     part = control.manual_part
     if part and outcome.verdict == PASS and profile.get(part["when"][8:]):
         finding.verdict = MANUAL

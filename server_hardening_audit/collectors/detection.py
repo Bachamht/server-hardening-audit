@@ -81,6 +81,12 @@ def brute_force(ctx: CollectContext) -> dict[str, Any]:
         if res is not None:
             source = "journal"
             bans_7d = sum(1 for ln in res.stdout.splitlines() if f"[{jail}] Ban " in ln)
+    out["_highlights"] = [
+        f"fail2ban jail '{jail}': {bans_7d} ban(s) in the last 7 days (source: {source}), "
+        f"{total} since the service started",
+        "bantime {bantime}s, findtime {findtime}s, maxretry {maxretry}, backend {backend}"
+        .format(**{k: params.get(k, "?") for k in F2B_PARAMS}),
+    ]
     out.update({"jail": jail, "total_banned_since_start": total, "bans_7d": bans_7d,
                 "ban_log_source": source, "params": params,
                 "bans_observed": max(total, bans_7d)})

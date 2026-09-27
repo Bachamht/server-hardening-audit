@@ -22,7 +22,17 @@ def lynis_report(ctx: CollectContext) -> dict[str, Any]:
     if not ended or "hardening_index" not in value:
         raise Undetermined("Lynis report is incomplete (no end time or hardening index)")
     when = datetime.strptime(ended, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-    return {"hardening_index": int(value["hardening_index"]),
+    warnings = value.get("warnings", [])
+    suggestions = value.get("suggestions", [])
+    highlights = [
+        f"Lynis {value.get('lynis_version', '?')} hardening index {value['hardening_index']}, "
+        f"report from {ended} UTC",
+        f"{len(warnings)} warning(s): {', '.join(warnings) or 'none'}",
+        f"{len(suggestions)} suggestion(s)" + (f", e.g. {', '.join(suggestions[:8])}"
+                                               if suggestions else ""),
+    ]
+    return {"_highlights": highlights, "suggestions": suggestions,
+            "hardening_index": int(value["hardening_index"]),
             "report_age_days": round((ctx.now_ts - when.timestamp()) / 86400, 1),
             "report_time": ended, "lynis_version": value.get("lynis_version"),
             "warnings": value.get("warnings", []),

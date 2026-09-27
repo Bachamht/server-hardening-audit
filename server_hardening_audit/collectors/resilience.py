@@ -65,7 +65,15 @@ def backups(ctx: CollectContext) -> dict[str, Any]:
     retention: Any = True if pruning else unknown(
         "no pruning visible in cron entries or timer names (it may live inside a script); "
         "confirm the retention policy by attestation")
-    return {"scheduled": bool(schedules), "schedules": schedules, "pruning": pruning,
+    highlights = [f"{len(files)} backup file(s) under {', '.join(paths)}"]
+    if newest:
+        highlights.append(f"newest: {newest['path'].rsplit('/', 1)[-1]}, {newest['size']} bytes, "
+                          f"{ctx.age_hours(newest['mtime'])}h old")
+        oldest = min(files, key=lambda e: e["mtime"])
+        highlights.append(f"oldest kept: {ctx.age_hours(oldest['mtime'])}h old")
+    highlights.append("schedules: " + ("; ".join(schedules) or "none found"))
+    return {"_highlights": highlights,
+            "scheduled": bool(schedules), "schedules": schedules, "pruning": pruning,
             "retention_evidence": retention, "backup_files": len(files),
             "newest": newest["path"] if newest else None, "newest_age_hours": newest_age,
             "newest_size": newest["size"] if newest else None}
@@ -89,7 +97,9 @@ def disk_headroom(ctx: CollectContext) -> dict[str, Any]:
             violations.append(f"{path}: {free}% space free (< {min_free}%)")
         if inodes is not None and inodes < min_inodes:
             violations.append(f"{path}: {inodes}% inodes free (< {min_inodes}%)")
-    return {"mounts": mounts, "violations": violations}
+    return {"_highlights": [f"{m['path']}: {m['free_percent']}% space free, "
+                            f"{m['inodes_free_percent']}% inodes free" for m in mounts],
+            "mounts": mounts, "violations": violations}
 
 
 @collector("backup_permissions", plan=[

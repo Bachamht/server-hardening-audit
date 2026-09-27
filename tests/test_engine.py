@@ -74,6 +74,17 @@ def test_failing_host_exit_code_and_report(tmp_path, capsys):
     for mid in MANUAL:
         assert f"| {mid} | MANUAL |" in md
     assert "Cloud-provider security groups" in md
+
+
+def test_key_facts_reach_the_report(tmp_path, capsys):
+    scopes, profile = _composite(_first("PASS"))
+    src = build_run(tmp_path, scopes, profile)
+    _, run_dir, doc = _audit(src, tmp_path / "out")
+    md = (run_dir / "report.md").read_text()
+    assert "**Key fact:** Lynis 3.1.2 hardening index 67" in md
+    assert "**Key fact:** fail2ban jail 'sshd': 3 ban(s) in the last 7 days" in md
+    lynis = next(f for f in doc["findings"] if f["id"] == "BAS-01")
+    assert "_highlights" not in lynis["details"]["collected"]["lynis"]
     # findings are ordered by severity, then verdict
     sev = [f["severity"] for f in doc["findings"]]
     order = ["critical", "high", "medium", "low"]

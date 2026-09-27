@@ -183,6 +183,11 @@ def firewall(ctx: CollectContext) -> dict[str, Any]:
         result["notes"].append("IPv6 is disabled on this host")
     public = set(ctx.profile["public_ports"])
     result["ipv6_enabled"] = v6
+    result["_highlights"] = [
+        f"front-end: {result['frontend']}; default deny IPv4 {result['default_deny_v4']}, "
+        f"IPv6 {result['default_deny_v6']}",
+        "open to any source: " + (", ".join(map(str, result["open_ports"])) or "none"),
+    ]
     result["extra_ports"] = [p for p in result["open_ports"] if p not in public]
     if result["unresolved_rules"] and not result["extra_ports"]:
         result["extra_ports"] = unknown(
