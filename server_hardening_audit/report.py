@@ -139,7 +139,8 @@ def render_markdown(doc: dict[str, Any], run: dict[str, Any]) -> str:
       f"`{run['controls']['sha256'][:16]}…` · {len(findings)} evaluated |")
     for af in doc.get("attestation_files", []):
         w(f"| Attestation | `{_cell(af['file'])}` · sha256 `{af['sha256'][:16]}…` · "
-          f"{af['attestations']} attestation(s), {af['risk_acceptances']} risk acceptance(s) |")
+          f"{af['attestations']} attestation(s), {af['risk_acceptances']} risk acceptance(s), "
+          f"{af.get('notes', 0)} note(s) |")
     priv = ("root" if host.get("euid") == 0
             else f"uid {host.get('euid')} (not root: expect UNKNOWN results)")
     w(f"| Privileges | {priv} |\n")
@@ -191,6 +192,8 @@ def render_markdown(doc: dict[str, Any], run: dict[str, Any]) -> str:
         if details.get("automated_result") and f["basis"] == "attested":
             ar = details["automated_result"]
             w(f"- **Automated result before attestation:** {ar['verdict']} — {ar['summary']}")
+        for n in details.get("notes", []):
+            w(f"- **Operator note** ({n['author']}, `{n['file']}`): {n['text']}")
         for c in details.get("corroboration", []):
             agree = "agrees" if c["agrees"] else "**CONTRADICTS the host result**"
             w(f"- **External check** ({c['source']}, {c['performed_at']}) {agree}: "

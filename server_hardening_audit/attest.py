@@ -27,6 +27,7 @@ from .loader import ConfigError, parse_toml
 ATTEST_KEYS = {"control", "verdict", "method", "performed_at", "performed_by", "evidence",
                "measurements", "source"}
 RISK_KEYS = {"control", "reason", "accepted_by", "review_by"}
+NOTE_KEYS = {"control", "text", "author"}
 
 
 def _iso(value: Any, where: str) -> str:
@@ -58,7 +59,9 @@ def _date(value: Any, where: str) -> str:
 
 def load(paths: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]],
                                     list[dict[str, Any]]]:
-    """Return (attestations, risk acceptances, file records)."""
+    """Return (attestations, risk acceptances + notes, file records).
+
+    Notes ride along with risk acceptances (entries with a "text" key)."""
     attestations, risks, files = [], [], []
     for p in paths:
         path = Path(p)
@@ -67,12 +70,19 @@ def load(paths: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]],
         except OSError as exc:
             raise ConfigError(str(exc)) from exc
         doc = parse_toml(data, p)
-        extra = set(doc) - {"attestation", "risk_acceptance"}
+        extra = set(doc) - {"attestation", "risk_acceptance", "note"}
         if extra:
             raise ConfigError(f"{p}: unknown top-level key(s) {sorted(extra)}")
         files.append({"file": path.name, "sha256": sha256_file(path),
                       "attestations": len(doc.get("attestation", [])),
-                      "risk_acceptances": len(doc.get("risk_acceptance", []))})
+                      "risk_acceptances": len(doc.get("risk_acceptance", [])),
+                      "notes": len(doc.get("note", []))})
+        for i, raw in enumerate(doc.get("note", [])):
+            where = f"{p} note[{i}]"
+            if set(raw) - NOTE_KEYS or not {"control", "text", "author"} <= set(raw):
+                raise ConfigError(f"{where}: needs exactly control, text and author")
+            risks.append({"control": raw["control"], "text": " ".join(raw["text"].split()),
+                          "author": raw["author"], "file": path.name})
         for i, raw in enumerate(doc.get("attestation", [])):
             where = f"{p} attestation[{i}]"
             extra = set(raw) - ATTEST_KEYS
@@ -155,7 +165,11 @@ def apply(doc: dict[str, Any], attestations: list[dict[str, Any]],
     for r in risks:
         f = by_id.get(r["control"])
         if f is None:
-            raise ConfigError(f"risk acceptance for {r['control']}, which is not in this run")
+            raise ConfigError(f"entry for {r['control']}, which is not in this run")
+        if "text" in r:  # an operator note: shown, never changes a verdict
+            f.setdefault("details", {}).setdefault("notes", []).append(
+                {"text": r["text"], "author": r["author"], "file": r["file"]})
+            continue
         if f["verdict"] != "FAIL":
             warnings.append(f"{r['control']}: risk acceptance ignored; verdict is "
                             f"{f['verdict']}, not FAIL")

@@ -81,3 +81,16 @@ date.
 
 Any UNKNOWN control can also be resolved by an attestation when the operator
 has verified the fact another way — say how in `method`.
+
+## Operator notes
+
+An attestation file can also carry notes: an operator's reading of the
+evidence, shown under the control in the report and never changing a
+verdict.
+
+```toml
+[[note]]
+control = "BAS-01"
+author = "operator with AI agent"
+text = "Lynis warnings KRNL-5830 and ACCT-9628 match PAT-02 and DET-03."
+```

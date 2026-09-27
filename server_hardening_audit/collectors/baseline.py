@@ -23,13 +23,18 @@ def lynis_report(ctx: CollectContext) -> dict[str, Any]:
         raise Undetermined("Lynis report is incomplete (no end time or hardening index)")
     when = datetime.strptime(ended, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     warnings = value.get("warnings", [])
+    texts = value.get("warning_text", [""] * len(warnings))
     suggestions = value.get("suggestions", [])
+    counts: dict[str, int] = {}
+    for s in suggestions:
+        counts[s] = counts.get(s, 0) + 1
+    grouped = ", ".join(f"{k} ×{v}" if v > 1 else k for k, v in counts.items())
     highlights = [
         f"Lynis {value.get('lynis_version', '?')} hardening index {value['hardening_index']}, "
         f"report from {ended} UTC",
-        f"{len(warnings)} warning(s): {', '.join(warnings) or 'none'}",
-        f"{len(suggestions)} suggestion(s)" + (f", e.g. {', '.join(suggestions[:8])}"
-                                               if suggestions else ""),
+        f"{len(warnings)} warning(s)" + ("" if warnings else ": none"),
+        *[f"warning {w}: {t}" for w, t in zip(warnings, texts, strict=False)],
+        f"{len(suggestions)} suggestion(s) across {len(counts)} tests: {grouped or 'none'}",
     ]
     return {"_highlights": highlights, "suggestions": suggestions,
             "hardening_index": int(value["hardening_index"]),

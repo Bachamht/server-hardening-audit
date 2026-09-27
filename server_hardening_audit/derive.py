@@ -172,10 +172,11 @@ def cron_schedules(data: bytes) -> Derived:
 
 @deriver("lynis_report", r"/var/log/lynis-report\.dat")
 def lynis_report(data: bytes) -> Derived:
-    """Score, timestamps and test IDs. Host inventory in the report is dropped."""
+    """Score, timestamps, test IDs and warning descriptions. The report's host
+    inventory and every finding's details field are dropped."""
     keep = {"hardening_index", "report_datetime_start", "report_datetime_end",
             "lynis_version", "os", "os_version"}
-    out: Derived = {"warnings": [], "suggestions": []}
+    out: Derived = {"warnings": [], "warning_text": [], "suggestions": []}
     for line in _lines(data):
         key, sep, value = line.partition("=")
         if not sep:
@@ -183,8 +184,13 @@ def lynis_report(data: bytes) -> Derived:
         if key in keep:
             out[key] = value.strip()
         elif key in ("warning[]", "suggestion[]"):
-            test_id = value.split("|", 1)[0].strip()
-            out["warnings" if key == "warning[]" else "suggestions"].append(test_id)
+            fields = value.split("|")
+            test_id = fields[0].strip()
+            if key == "warning[]":
+                out["warnings"].append(test_id)
+                out["warning_text"].append(fields[1].strip() if len(fields) > 1 else "")
+            else:
+                out["suggestions"].append(test_id)
     return out
 
 

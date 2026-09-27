@@ -154,3 +154,17 @@ def test_report_with_attest_and_e8_view(tmp_path, failing_run, capsys):
     view = json.loads(capsys.readouterr().out)
     rb4 = next(r for r in view["requirements"] if r["id"] == "RB-ML1-04")
     assert rb4["outcome"] == "pass" and rb4["evidence"][0]["basis"] == "attested"
+
+
+def test_notes_are_shown_and_never_change_verdicts(tmp_path, failing_run):
+    _, doc = failing_run
+    note = '[[note]]\ncontrol = "ACC-01"\nauthor = "operator"\ntext = "Root logs in with a key."\n'
+    out, _ = _apply(doc, _write(tmp_path, note))
+    f = next(x for x in out["findings"] if x["id"] == "ACC-01")
+    before = next(x for x in doc["findings"] if x["id"] == "ACC-01")
+    assert f["verdict"] == before["verdict"] and f["basis"] == before["basis"]
+    assert f["details"]["notes"] == [{"text": "Root logs in with a key.", "author": "operator",
+                                      "file": "a.toml"}]
+    md = __import__("server_hardening_audit.report", fromlist=["x"]).render_markdown(
+        out, json.loads((failing_run[0] / "run.json").read_text()))
+    assert "**Operator note** (operator, `a.toml`): Root logs in with a key." in md

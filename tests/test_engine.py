@@ -82,6 +82,7 @@ def test_key_facts_reach_the_report(tmp_path, capsys):
     _, run_dir, doc = _audit(src, tmp_path / "out")
     md = (run_dir / "report.md").read_text()
     assert "**Key fact:** Lynis 3.1.2 hardening index 67" in md
+    assert "**Key fact:** warning SSH-7408: Consider hardening SSH configuration" in md
     assert "**Key fact:** fail2ban jail 'sshd': 3 ban(s) in the last 7 days" in md
     lynis = next(f for f in doc["findings"] if f["id"] == "BAS-01")
     assert "_highlights" not in lynis["details"]["collected"]["lynis"]
