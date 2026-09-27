@@ -36,3 +36,34 @@ echo "== 3. same host, not root"
 chmod 1777 /tmp
 audit /tmp/runs-nobody runuser -u nobody --
 $CHECK /tmp/runs-nobody "$rc" "ACC-04=UNKNOWN" "ACC-01=UNKNOWN"
+
+echo "== 4. probe against the container's own sshd (SPEC M3 acceptance)"
+/usr/sbin/sshd
+sleep 1
+python3 "$PYZ" probe 127.0.0.1 --ports 22,2222 --ssh-user root --public-ports 22 \
+  --out /tmp/probe-stock
+python3 - <<'PY'
+import json
+r = json.load(open("/tmp/probe-stock/probe.json"))
+methods = r["ssh"][0]["methods"]
+assert r["ports"]["ipv4"]["22"] == "open" and r["ports"]["ipv4"]["2222"] == "closed", r["ports"]
+assert "password" in methods and "publickey" in methods, methods   # stock config
+print("stock sshd advertises:", methods)
+PY
+printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\n' \
+  > /etc/ssh/sshd_config.d/00-keys-only.conf
+kill -HUP "$(cat /run/sshd.pid)"
+sleep 1
+python3 "$PYZ" probe 127.0.0.1 --ports 22 --ssh-user root --public-ports 22 --out /tmp/probe-hard
+python3 - <<'PY'
+import json, sys
+sys.path.insert(0, "/src")
+from server_hardening_audit.loader import parse_toml
+r = json.load(open("/tmp/probe-hard/probe.json"))
+assert r["ssh"][0]["methods"] == ["publickey"], r["ssh"]
+doc = parse_toml(open("/tmp/probe-hard/probe-attestation.toml", "rb").read(), "probe")
+atts = {a["control"]: a for a in doc["attestation"]}
+assert atts["ACC-01"]["verdict"] == "PASS" and atts["NET-04"]["verdict"] == "PASS", atts
+print("hardened sshd advertises:", r["ssh"][0]["methods"])
+PY
+echo "integration: OK"
