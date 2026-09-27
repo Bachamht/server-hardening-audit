@@ -154,7 +154,7 @@ To copy the run to your machine, have the user return ownership first
 
 Read `findings.json`, not only the report. For each finding: `verdict`
 (PASS, FAIL, NA, UNKNOWN, MANUAL), `basis` (verified = machine evidence,
-attested = operator statement), `summary`, `details`, `evidence`.
+attested = operator statement, pending = MANUAL awaiting an attestation), `summary`, `details`, `evidence`.
 
 **UNKNOWN — investigate the reason, do not guess.** The summary says why:
 a command missing, permission denied, output that could not be parsed,

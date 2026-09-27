@@ -174,7 +174,7 @@ def evaluate(control: Control, runner: Runner, profile: dict[str, Any],
         return finding
     if control.manual is not None:
         finding.verdict = MANUAL
-        finding.basis = "attested"
+        finding.basis = "pending"
         finding.summary = "requires an operator procedure and an attestation"
         finding.instructions = control.manual
         return finding
@@ -197,6 +197,7 @@ def evaluate(control: Control, runner: Runner, profile: dict[str, Any],
     part = control.manual_part
     if part and outcome.verdict == PASS and profile.get(part["when"][8:]):
         finding.verdict = MANUAL
+        finding.basis = "pending"
         finding.summary += " -- remaining part needs an attestation"
         finding.instructions = part["instructions"].strip()
     return finding

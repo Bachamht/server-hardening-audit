@@ -10,7 +10,7 @@ from server_hardening_audit import cli
 
 SENSITIVE = {
     "testhost": "prod-web-7.mysite.com.au",
-    "203.0.113.10": "45.76.12.34",
+    "203.0.113.10": "198.18.7.9",
     "site-a.example": "shop.mysite.com.au",
     "opsadmin": "zhangwei",
 }
@@ -78,7 +78,7 @@ def test_scrub_removes_mapped_values_and_addresses(tmp_path, real_run, capsys):
     blob = "\n".join(p.read_text() for p in out.iterdir()).lower()
     for real in SENSITIVE.values():
         assert real.lower() not in blob
-    assert "45.76.12.34" not in blob and "192.0.2.10" in blob
+    assert "198.18.7.9" not in blob and "192.0.2.10" in blob
     assert "127.0.0.1" in blob            # loopback is kept: it carries meaning
     assert "host-01" in blob
     assert "all measurements are real" in blob

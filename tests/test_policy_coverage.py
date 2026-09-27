@@ -125,6 +125,7 @@ def test_live_runner_uses_fixed_path_and_minimal_env(monkeypatch):
             returncode, stdout, stderr = 0, b"", b""
         return P()
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("server_hardening_audit.runner.untrusted_executable", lambda p: None)
     monkeypatch.setenv("PATH", "/tmp/evil:/usr/bin")
     monkeypatch.setattr("shutil.which", lambda prog, path=None: f"{path.split(':')[0]}/{prog}"
                         if path and "/tmp/evil" not in path else None)
@@ -133,3 +134,34 @@ def test_live_runner_uses_fixed_path_and_minimal_env(monkeypatch):
     assert seen["env"]["PATH"].startswith("/usr/local/sbin")
     assert "DOCKER_HOST" not in seen["env"]
     assert re.match(r"^/usr/local/sbin/ss$", seen["argv"][0])
+
+
+@pytest.mark.parametrize("uid,mode,ok", [
+    (0, 0o100755, True),
+    (1000, 0o100755, False),   # owned by a normal user
+    (0, 0o100775, False),      # group-writable
+    (0, 0o100757, False),      # world-writable
+])
+def test_untrusted_executables_are_refused(monkeypatch, uid, mode, ok):
+    import os
+
+    from server_hardening_audit import runner as runner_mod
+    monkeypatch.setattr(os.path, "realpath", lambda p: "/opt/evil/bin/ss")
+    real_stat = os.stat
+    monkeypatch.setattr(os, "stat", lambda p, *a, **k: (
+        type("S", (), {"st_uid": uid, "st_mode": mode if p.endswith("/ss") else 0o40755})()
+        if p.startswith("/opt/evil") else real_stat(p, *a, **k)))
+    reason = runner_mod.untrusted_executable("/usr/bin/ss")
+    assert (reason is None) == ok, reason
+
+
+def test_live_runner_refuses_untrusted_binary(monkeypatch):
+    from server_hardening_audit import runner as runner_mod
+    monkeypatch.setattr(runner_mod.shutil, "which", lambda prog, path=None: "/opt/evil/ss")
+    monkeypatch.setattr(runner_mod, "untrusted_executable", lambda p: "not owned by root")
+
+    def boom(*a, **k):
+        raise AssertionError("must not execute")
+    monkeypatch.setattr(subprocess, "run", boom)
+    res = LiveRunner(now=None).run(["ss", "-tlnpH"])
+    assert res.error_kind == "denied" and "not owned by root" in res.error

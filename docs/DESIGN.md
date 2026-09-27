@@ -61,6 +61,12 @@ would use a pipe (`ss -tlnp | grep …`), the engine runs one command and
 does the filtering in Python. This removes shell injection as a class and
 makes the allowlist precise: what is matched is exactly what runs.
 
+Before running a resolved program, the runner also checks that the binary
+and its directory are owned by root and not writable by group or others. A
+program that another account could have replaced is not run (UNKNOWN, with
+the reason): an allowlisted name is only as trustworthy as the file behind
+it.
+
 ### Default-deny reads, and derived evidence for sensitive sources
 
 Raw file reads copy content into the evidence pack, so they are limited to
@@ -126,8 +132,9 @@ the declared ports", not "nothing went wrong".
 
 ### Verified and attested
 
-Every finding has a basis: `verified` (machine-collected evidence) or
-`attested` (an operator's statement). The report shows `PASS · attested`
+Every finding has a basis: `verified` (machine-collected evidence),
+`attested` (an operator's statement), or `pending` (a MANUAL finding still
+waiting for its attestation — nothing has been claimed yet). The report shows `PASS · attested`
 differently from `PASS`. An attestation resolves MANUAL and UNKNOWN
 findings. It cannot turn a verified FAIL into PASS; an external observation
 that contradicts a verified PASS turns it into FAIL. A risk acceptance

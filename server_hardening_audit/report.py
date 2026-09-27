@@ -88,8 +88,10 @@ def validate(doc: Any) -> list[str]:
             errors.append(f"{where}.verdict {f.get('verdict')!r} is not one of {VERDICTS}")
         if f.get("severity") not in SEVERITY_ORDER:
             errors.append(f"{where}.severity {f.get('severity')!r} is invalid")
-        if f.get("basis") not in ("verified", "attested"):
-            errors.append(f"{where}.basis must be verified or attested")
+        if f.get("basis") not in ("verified", "attested", "pending"):
+            errors.append(f"{where}.basis must be verified, attested or pending")
+        if (f.get("verdict") == "MANUAL") != (f.get("basis") == "pending"):
+            errors.append(f"{where}: MANUAL, and only MANUAL, has basis pending")
         if f.get("verdict") in ("NA", "UNKNOWN") and not f.get("summary"):
             errors.append(f"{where}: {f.get('verdict')} requires a reason in summary")
         if f.get("verdict") in ("PASS", "FAIL") and f.get("basis") == "verified" \

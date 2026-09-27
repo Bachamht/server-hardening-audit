@@ -282,6 +282,24 @@ class Runner:
         raise NotImplementedError
 
 
+def untrusted_executable(path: str) -> str | None:
+    """Refuse to run a program that someone other than root could have
+    replaced: the binary and its directory must be owned by root and not
+    writable by group or others. Returns the reason, or None if trusted."""
+    real = os.path.realpath(path)
+    for target in (real, os.path.dirname(real)):
+        try:
+            st = os.stat(target)
+        except OSError as exc:
+            return f"cannot stat {target}: {exc}"
+        if st.st_uid != 0:
+            return f"{target} is not owned by root (uid {st.st_uid}); refusing to run it"
+        if st.st_mode & 0o022:
+            return (f"{target} is writable by group or others "
+                    f"({_stat.S_IMODE(st.st_mode):04o}); refusing to run it")
+    return None
+
+
 class LiveRunner(Runner):
     mode = "live"
 
@@ -299,6 +317,9 @@ class LiveRunner(Runner):
         exe = shutil.which(argv[0], path=SAFE_PATH)
         if exe is None:
             return CmdResult(argv, error=f"{argv[0]}: command not found", error_kind="missing")
+        untrusted = untrusted_executable(exe)
+        if untrusted:
+            return CmdResult(argv, error=untrusted, error_kind="denied")
         try:
             proc = subprocess.run(  # noqa: S603 -- argv checked by policy.check
                 [exe, *argv[1:]], shell=False, stdin=subprocess.DEVNULL, capture_output=True,
