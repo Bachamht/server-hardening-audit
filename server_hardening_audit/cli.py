@@ -376,7 +376,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--profile", help="profile whose public_ports are the intended exposure")
     s.add_argument("--public-ports", help="intended public ports (overrides --profile)")
     s.add_argument("--timeout", type=float, default=3.0, help="seconds per connection")
-    s.add_argument("--out", default="probe", help="output directory")
+    s.add_argument("--out", default="audit-runs/probe",
+                   help="output directory (default is git-ignored: audit-runs/probe)")
     s.set_defaults(fn=cmd_probe)
 
     s = sub.add_parser("diff", help="compare two runs")
