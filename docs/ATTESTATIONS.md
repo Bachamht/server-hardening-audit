@@ -47,7 +47,7 @@ review_by = 2026-12-31
 | MANUAL or UNKNOWN | FAIL | FAIL · attested |
 | PASS (verified) | PASS | PASS, with the attestation listed as corroboration |
 | PASS (verified) | FAIL | **FAIL · attested** — an external observation contradicting the host's own view wins (what the internet reaches beats what the configuration says) |
-| FAIL (verified) | PASS | FAIL stands; the contradiction is reported as a warning |
+| FAIL (verified) | PASS | FAIL stands; shown as an external check that found no problem within its (narrower) scope |
 | NA | any | unchanged; listed as corroboration |
 
 Several attestations for one MANUAL control combine: any FAIL makes it FAIL.

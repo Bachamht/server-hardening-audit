@@ -195,7 +195,12 @@ def render_markdown(doc: dict[str, Any], run: dict[str, Any]) -> str:
         for n in details.get("notes", []):
             w(f"- **Operator note** ({n['author']}, `{n['file']}`): {n['text']}")
         for c in details.get("corroboration", []):
-            agree = "agrees" if c["agrees"] else "**CONTRADICTS the host result**"
+            if c["agrees"]:
+                agree = "agrees"
+            elif c["verdict"] == "FAIL":
+                agree = "**CONTRADICTS the host result**"
+            else:  # an external PASS cannot see everything a verified FAIL covers
+                agree = "found no problem within its scope; the host result stands"
             w(f"- **External check** ({c['source']}, {c['performed_at']}) {agree}: "
               f"{c['verdict']} — {c['method']}")
         if f.get("rationale"):

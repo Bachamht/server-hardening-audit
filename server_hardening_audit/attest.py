@@ -160,8 +160,8 @@ def apply(doc: dict[str, Any], attestations: list[dict[str, Any]],
                 warnings.append(f"{a['control']}: attestation contradicts a verified PASS; "
                                 "verdict set to FAIL")
             elif f["verdict"] == "FAIL" and a["verdict"] == "PASS":
-                warnings.append(f"{a['control']}: attestation says PASS but the verified "
-                                "result is FAIL; the FAIL stands")
+                warnings.append(f"{a['control']}: attestation (PASS) covers less than the "
+                                "verified FAIL; the FAIL stands")
     for r in risks:
         f = by_id.get(r["control"])
         if f is None:

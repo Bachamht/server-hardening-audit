@@ -124,6 +124,9 @@ def test_attestation_cannot_turn_verified_fail_into_pass(tmp_path, failing_run):
     out, warnings = _apply(doc, _write(tmp_path, _corroborate("ACC-01", "PASS")))
     assert next(x for x in out["findings"] if x["id"] == "ACC-01")["verdict"] == "FAIL"
     assert any("FAIL stands" in w for w in warnings)
+    md = report.render_markdown(out, json.loads((failing_run[0] / "run.json").read_text()))
+    assert "found no problem within its scope; the host result stands" in md
+    assert "CONTRADICTS" not in md
 
 
 @pytest.mark.parametrize("bad,msg", [
