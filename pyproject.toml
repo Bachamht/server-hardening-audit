@@ -1,0 +1,31 @@
+[project]
+name = "server-hardening-audit"
+description = "Read-only Linux server hardening audit with evidence-backed, framework-mapped reports."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = []
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["server_hardening_audit/_vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+ignore = [
+    "S603",  # subprocess without shell: argv is policy-checked
+    "S101",  # assert in tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]
