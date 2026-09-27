@@ -3,8 +3,8 @@ call = [
   { op = "read", path = "/etc/passwd", content = "root:x:0:0:root:/root:/bin/bash\nsyslog:x:104:111::/nonexistent:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\npostgres:x:110:117::/var/lib/postgresql:/bin/bash\nadmin:x:1000:1000::/home/admin:/bin/bash\ndeploy:x:1001:1001::/home/deploy:/bin/bash\n" },
   { op = "read", path = "/etc/group", content = "root:x:0:\nadm:x:4:syslog,admin\nsudo:x:27:admin\ndocker:x:988:\nadmin:x:1000:\ndeploy:x:1001:\n" },
   { op = "cmd", argv = ["ps", "-eo", "user:32,comm", "--no-headers"], stdout = "root systemd\nroot sshd\nsyslog rsyslogd\nwww-data nginx\npostgres postgres\ndeploy node\n" },
-  { op = "cmd", argv = ["systemctl", "list-units", "--type=service", "--state=running", "--no-legend", "--plain"], stdout = "nginx.service loaded active running A high performance web server\npostgresql@16-main.service loaded active running PostgreSQL Cluster 16-main\nwebapp.service loaded active running Web application\n" },
-  { op = "cmd", argv = ["systemctl", "show", "-p", "Id,User,DynamicUser", "nginx.service", "postgresql@16-main.service", "webapp.service"], stdout = "Id=nginx.service\nUser=\nDynamicUser=no\n\nId=postgresql@16-main.service\nUser=postgres\nDynamicUser=no\n\nId=webapp.service\nUser=deploy\nDynamicUser=no\n" },
+  { op = "cmd", argv = ["systemctl", "list-units", "--type=service", "--state=running", "--no-legend", "--plain"], stdout = "nginx.service loaded active running A high performance web server\npostgresql@16-main.service loaded active running PostgreSQL Cluster 16-main\nwebapp.service loaded active running Web application\nuser@0.service loaded active running User Manager for UID 0\n" },
+  { op = "cmd", argv = ["systemctl", "show", "-p", "Id,User,DynamicUser", "nginx.service", "postgresql@16-main.service", "webapp.service", "user@0.service"], stdout = "Id=nginx.service\nUser=\nDynamicUser=no\n\nId=postgresql@16-main.service\nUser=postgres\nDynamicUser=no\n\nId=webapp.service\nUser=deploy\nDynamicUser=no\n\nId=user@0.service\nUser=0\nDynamicUser=no\n" },
 ]
 
 [profile]

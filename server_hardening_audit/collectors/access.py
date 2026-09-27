@@ -193,7 +193,7 @@ def privileged_accounts(ctx: CollectContext) -> dict[str, Any]:
             shown = ctx.cmd(["systemctl", "show", "-p", "Id,User,DynamicUser", *chunk])
             for block in ctx.parse("systemctl_show", shown.stdout, "systemctl show"):
                 user = block.get("User", "")
-                if user and user != "root":
+                if user and user not in ("root", "0"):  # systemd may report root as uid 0
                     service_users.setdefault(user, []).append(block.get("Id", "?"))
 
     admins = set(ctx.profile["admin_users"])
