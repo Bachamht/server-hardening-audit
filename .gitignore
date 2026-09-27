@@ -1,0 +1,13 @@
+# Private operator material: host details, never committed
+local/
+audit-runs/
+
+# Build and runtime artefacts
+dist/
+*.pyz
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
