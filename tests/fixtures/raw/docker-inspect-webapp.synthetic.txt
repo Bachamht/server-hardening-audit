@@ -1,0 +1,24 @@
+[
+  {
+    "Id": "5f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8",
+    "Created": "2026-09-01T08:00:00.123456789Z",
+    "Name": "/webapp",
+    "Image": "sha256:aa11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899",
+    "Config": {"Image": "ghcr.io/example/webapp:2.4"},
+    "HostConfig": {"NetworkMode": "bridge"},
+    "NetworkSettings": {
+      "Ports": {
+        "3000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "3000"}]
+      }
+    }
+  },
+  {
+    "Id": "6a1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8",
+    "Created": "2026-09-01T08:00:00.123456789Z",
+    "Name": "/db",
+    "Image": "sha256:bb11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899",
+    "Config": {"Image": "postgres:16-alpine"},
+    "HostConfig": {"NetworkMode": "bridge"},
+    "NetworkSettings": {"Ports": {"5432/tcp": null}}
+  }
+]

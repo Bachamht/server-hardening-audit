@@ -1,0 +1,4 @@
+Listing...
+libssl3t64/noble-updates,noble-security 3.0.13-0ubuntu3.5 amd64 [upgradable from: 3.0.13-0ubuntu3.4]
+openssl/noble-updates,noble-security 3.0.13-0ubuntu3.5 amd64 [upgradable from: 3.0.13-0ubuntu3.4]
+snapd/noble-updates 2.66.1+24.04 amd64 [upgradable from: 2.65.3+24.04]

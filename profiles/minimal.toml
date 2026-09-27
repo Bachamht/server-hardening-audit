@@ -1,0 +1,15 @@
+# Minimal profile: the default when --profile is not given.
+# Declares SSH as the only public service and nothing else. Copy and edit a
+# profile for real hosts; keep host-specific profiles out of version control.
+
+name = "minimal"
+description = "Only SSH is public; no TLS domains, no declared backups."
+public_ports = [22]
+public_udp_ports = []
+tls_domains = []
+rpo_hours = 24
+backup_paths = []
+backup_offsite_required = true
+max_image_age_days = 60
+admin_users = []
+service_users = []

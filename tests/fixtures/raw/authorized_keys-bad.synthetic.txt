@@ -1,0 +1,4 @@
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCiAFviN0HKIPrhaPhfw9TZ4Ty0JV5brXr7lxXCgqr2WyyCaECp955ltrnsDCFvH5yyL79GAORkjtVSlRjavkiBxdi+yZs/lh5EfAgF2mAIvN+K5N7Ja4LzOd1J/YocLucu2GJTG/qLE6CV47IFAzd9tSr93EhaJ7OdTIvVoDHQkw== old-key
+command="/usr/local/bin/backup-only",no-pty ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4mX0lYtQ6x0ZfJ8yF2mJxZnq0y3w9b1q6M3kPpL0aB backup@ci
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHk1
+this line is not a key

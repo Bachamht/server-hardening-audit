@@ -1,0 +1,14 @@
+# Lynis Report
+report_version_major=1
+report_datetime_start=2026-09-15 10:00:01
+auditor=[Not Specified]
+lynis_version=3.1.2
+os=Linux
+os_version=24.04
+hostname=testhost
+network_ipv4_address[]=203.0.113.10
+warning[]=SSH-7408|Consider hardening SSH configuration|-|-|
+suggestion[]=BOOT-5122|Set a password on GRUB boot loader|-|-|
+suggestion[]=KRNL-6000|One or more sysctl values differ|-|-|
+hardening_index=67
+report_datetime_end=2026-09-15 10:03:12

@@ -1,0 +1,13 @@
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere
+80,443/tcp                 ALLOW IN    Anywhere
+5432/tcp                   ALLOW IN    198.51.100.7
+22/tcp (v6)                ALLOW IN    Anywhere (v6)
+80,443/tcp (v6)            ALLOW IN    Anywhere (v6)
+

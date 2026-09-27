@@ -1,0 +1,28 @@
+# A single VPS serving websites behind a reverse proxy, with application
+# services and databases bound to loopback. Example values only.
+
+name = "single-vps-webhost"
+description = "SSH, HTTP and HTTPS public; apps and databases on loopback; nightly local backups copied off-host."
+public_ports = [22, 80, 443]
+public_udp_ports = []
+
+# Checked on this host's own :443 with SNI, e.g. ["site-a.example"].
+tls_domains = []
+tls_min_days = 14
+
+rpo_hours = 24
+backup_paths = ["/var/backups"]
+backup_offsite_required = true
+
+max_image_age_days = 60
+
+# Accounts allowed in sudo/wheel; everything else in a privileged group fails ACC-03.
+admin_users = []
+# Accounts that run applications; they must hold no privileges.
+service_users = []
+
+apt_lists_max_age_hours = 48
+disk_paths = ["/"]
+min_free_percent = 20
+min_free_inodes_percent = 10
+lynis_max_age_days = 90

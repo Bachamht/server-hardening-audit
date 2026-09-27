@@ -1,0 +1,5 @@
+2026-09-18 03:12:44,101 fail2ban.filter         [812]: INFO    [sshd] Found 192.0.2.10 - 2026-09-18 03:12:44
+2026-09-18 03:12:50,002 fail2ban.actions        [812]: NOTICE  [sshd] Ban 192.0.2.10
+2026-09-19 11:02:10,555 fail2ban.actions        [812]: NOTICE  [sshd] Ban 198.51.100.20
+2026-09-19 11:12:10,555 fail2ban.actions        [812]: NOTICE  [sshd] Unban 198.51.100.20
+2026-09-20 09:40:01,000 fail2ban.actions        [812]: NOTICE  [sshd] Ban 203.0.113.99
