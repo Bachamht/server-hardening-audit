@@ -41,6 +41,15 @@ def build_doc(run: dict[str, Any], findings: list[dict[str, Any]]) -> dict[str, 
     }
 
 
+def upgrade(doc: dict[str, Any]) -> dict[str, Any]:
+    """Read findings written by earlier 0.1.0 development builds, which gave
+    unattested MANUAL findings basis 'attested' (or 'verified'). In place."""
+    for f in doc.get("findings", []):
+        if isinstance(f, dict) and f.get("verdict") == "MANUAL" and f.get("basis") != "pending":
+            f["basis"] = "pending"
+    return doc
+
+
 # --- Validation (no jsonschema dependency) ------------------------------------
 
 _FINDING_FIELDS = {

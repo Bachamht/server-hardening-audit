@@ -35,3 +35,15 @@ def test_redact_check(tmp_path, capsys):
     assert cli.main(["redact-check", str(tmp_path)]) == 0
     (tmp_path / "bad.md").write_text("DATABASE_URL=postgres://u:pw@h/db\n")
     assert cli.main(["redact-check", str(tmp_path)]) == 1
+
+
+def test_runs_from_earlier_builds_still_load(tmp_path, capsys):
+    import json
+
+    from server_hardening_audit import report
+    doc = {"findings": [{"id": "RES-02", "verdict": "MANUAL", "basis": "attested"},
+                        {"id": "RES-01", "verdict": "MANUAL", "basis": "verified"},
+                        {"id": "ACC-01", "verdict": "FAIL", "basis": "verified"}]}
+    report.upgrade(doc)
+    assert [f["basis"] for f in doc["findings"]] == ["pending", "pending", "verified"]
+    assert json.dumps(doc)

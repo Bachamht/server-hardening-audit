@@ -184,6 +184,7 @@ def _load_run(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         doc = json.loads((run_dir / "findings.json").read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise ToolError(f"{run_dir}: not a run directory ({exc})") from exc
+    report.upgrade(doc)
     errors = report.validate(doc)
     if errors:
         raise ToolError("findings.json is invalid: " + "; ".join(errors[:5]))
