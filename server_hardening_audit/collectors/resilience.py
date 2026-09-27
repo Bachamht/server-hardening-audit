@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import PurePosixPath
 from typing import Any
 
 from . import (
@@ -92,33 +93,59 @@ def disk_headroom(ctx: CollectContext) -> dict[str, Any]:
 
 
 @collector("backup_permissions", plan=[
+    stat("<each parent directory of a backup_path>", "e.g. /root when the path is /root/backups"),
     stat("<backup_path>", "each profile backup_paths entry"),
     listing("<backup_path>/*", "and <backup_path>/*/*; metadata only, never content"),
 ])
 def backup_permissions(ctx: CollectContext) -> dict[str, Any]:
-    """Other accounts must not read backups, and must not change or delete them."""
+    """Other accounts must not read backups, and must not change or delete them.
+
+    A permission bit only matters if the account can reach the file: a
+    directory on the path that denies search (x) to "other" makes world bits
+    below it unreachable, and likewise for the group.
+    """
     paths = ctx.profile["backup_paths"]
     if not paths:
         raise Undetermined("profile declares no backup_paths")
-    violations, checked = [], 0
+    violations, shielded, checked = [], [], 0
     for base in paths:
+        base = base.rstrip("/") or "/"
+        dirs: dict[str, int] = {}
+        for parent in reversed(PurePosixPath(base).parents):
+            if str(parent) != "/":
+                st = ctx.stat(str(parent))
+                if st["exists"]:
+                    dirs[str(parent)] = st["mode"]
         root = ctx.stat(base)
         if not root["exists"]:
             raise Undetermined(f"backup path {base} does not exist")
         entries = [root]
-        for pattern in (f"{base.rstrip('/')}/*", f"{base.rstrip('/')}/*/*"):
+        for pattern in (f"{base}/*", f"{base}/*/*"):
             entries += ctx.glob(pattern)
+        dirs.update({e["path"]: e["mode"] for e in entries if e["kind"] == "dir"})
+
+        def reachable(path: str, bit: int, dirs: dict[str, int] = dirs) -> bool:
+            return all(mode & bit for d, mode in dirs.items()
+                       if path.startswith(d + "/"))
+
         for e in entries:
+            other_ok = reachable(e["path"], 0o001)
+            group_ok = reachable(e["path"], 0o010)
             if e["kind"] == "dir":
-                if e["mode"] & 0o022 and not e["mode"] & 0o1000:
+                if (e["mode"] & 0o002 and other_ok or e["mode"] & 0o020 and group_ok) \
+                        and not e["mode"] & 0o1000:
                     violations.append(f"{e['path']}: directory mode {e['mode']:04o} lets other "
                                       "accounts create or delete files")
             elif e["kind"] == "file":
                 checked += 1
-                if e["mode"] & 0o007:
+                if e["mode"] & 0o007 and other_ok:
                     violations.append(f"{e['path']}: mode {e['mode']:04o} gives all accounts "
                                       "access")
-                elif e["mode"] & 0o020:
+                elif e["mode"] & 0o020 and group_ok:
                     violations.append(f"{e['path']}: mode {e['mode']:04o} is group-writable "
                                       f"(group {e['group']})")
-    return {"files_checked": checked, "violations": violations}
+                elif e["mode"] & 0o027:
+                    shielded.append(f"{e['path']} ({e['mode']:04o}; unreachable through a "
+                                    "parent directory)")
+    return {"files_checked": checked, "violations": violations,
+            "loose_but_unreachable": shielded}

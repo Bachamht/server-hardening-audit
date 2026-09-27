@@ -687,7 +687,7 @@ must not let other accounts add or remove files. Only metadata is read.
 """
 remediation = "chmod o-rwx and g-w on backup files (e.g. `chmod 0640`), and remove group/other write from backup directories; write backups with a restrictive umask (077)."
 disruptive = false
-limitations = "Covers backups under the declared backup_paths on this host; access to off-host copies is not checked."
+limitations = "Covers backups under the declared backup_paths on this host, taking parent directories into account; ACLs and access to off-host copies are not checked."
 
 [control.refs]
 iso27001_2022 = ["A.8.13"]

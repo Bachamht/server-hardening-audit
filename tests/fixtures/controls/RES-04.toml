@@ -3,6 +3,8 @@ backup_paths = ["/var/backups/app"]
 
 [shared.base]
 call = [
+  { op = "stat", path = "/var", kind = "dir", mode = "0755" },
+  { op = "stat", path = "/var/backups", kind = "dir", mode = "0755" },
   { op = "stat", path = "/var/backups/app", kind = "dir", mode = "0750", owner = "root", group = "backup" },
   { op = "glob", pattern = "/var/backups/app/*", matches = [
       { path = "/var/backups/app/app-2026-09-19.dump", mode = "0640", owner = "root", group = "backup" },
@@ -21,6 +23,7 @@ expect = "FAIL"
 summary_contains = "0644"
 use = ["base"]
 call = [
+  { op = "stat", path = "/var/backups/app", kind = "dir", mode = "0755" },
   { op = "glob", pattern = "/var/backups/app/*", matches = [
       { path = "/var/backups/app/app-2026-09-20.dump", mode = "0644", owner = "root" } ] },
 ]
@@ -48,3 +51,24 @@ call = [ { op = "stat", path = "/var/backups/app", exists = false } ]
 name = "no backup_paths declared"
 expect = "UNKNOWN"
 profile = { backup_paths = [] }
+
+[[scenario]]
+name = "world-readable dump inside a 0700 directory is unreachable"
+expect = "PASS"
+use = ["base"]
+call = [
+  { op = "stat", path = "/var/backups/app", kind = "dir", mode = "0700" },
+  { op = "glob", pattern = "/var/backups/app/*", matches = [
+      { path = "/var/backups/app/verify-db.dump", mode = "0644" } ] },
+]
+
+[[scenario]]
+name = "world-readable dump under /root (0700) is unreachable"
+expect = "PASS"
+profile = { backup_paths = ["/root/backups"] }
+call = [
+  { op = "stat", path = "/root", kind = "dir", mode = "0700" },
+  { op = "stat", path = "/root/backups", kind = "dir", mode = "0755" },
+  { op = "glob", pattern = "/root/backups/*", matches = [ { path = "/root/backups/x.dump", mode = "0644" } ] },
+  { op = "glob", pattern = "/root/backups/*/*", matches = [] },
+]
