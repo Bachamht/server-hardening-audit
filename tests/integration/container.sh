@@ -2,6 +2,7 @@
 # Runs inside ubuntu:22.04 / ubuntu:24.04 in CI with the repo mounted
 # read-only at /src and dist/server-hardening-audit.pyz already built.
 set -euo pipefail
+trap 'echo "::error title=container.sh::line $LINENO: $BASH_COMMAND"' ERR
 export DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1
 PYZ=/src/dist/server-hardening-audit.pyz
 CHECK="python3 /src/tests/integration/check_run.py"
