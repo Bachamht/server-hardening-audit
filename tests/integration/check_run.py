@@ -25,6 +25,10 @@ def main() -> int:
     if int(rc) not in (0, 1, 2):
         problems.append(f"exit code {rc} (tool error)")
     doc = json.loads((run_dir / "findings.json").read_text())
+    fails = [f for f in doc["findings"] if f["verdict"] == "FAIL"]
+    want_rc = 2 if any(f["severity"] == "critical" for f in fails) else 1 if fails else 0
+    if int(rc) != want_rc:
+        problems.append(f"exit code {rc}, but the findings imply {want_rc}")
     problems += report.validate(doc)
     problems += evidence.verify_manifest(run_dir)
     verdicts, table = {}, []

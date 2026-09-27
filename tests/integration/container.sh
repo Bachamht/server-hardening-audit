@@ -26,7 +26,7 @@ $CHECK /tmp/runs-bare "$rc" "ACC-01=NA" "NET-03=NA" "PAT-03=NA" "NET-02=UNKNOWN"
   "NET-04=MANUAL" "RES-02=MANUAL" "BAS-03=UNKNOWN"
 
 echo "== 2. with openssh-server and iproute2"
-apt-get install -y -qq --no-install-recommends openssh-server iproute2 >/dev/null
+apt-get install -y -qq --no-install-recommends openssh-server iproute2 sudo >/dev/null
 mkdir -p /run/sshd
 audit /tmp/runs-sshd
 $CHECK /tmp/runs-sshd "$rc" "ACC-01=PASS|FAIL" "NET-02=PASS|FAIL" "ACC-04=PASS|FAIL" \
