@@ -12,7 +12,7 @@ import zipapp
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build" / "pyz"
+BUILD = ROOT / "build" / "pyz"  # usage: build_pyz.py [OUTPUT]
 OUT = ROOT / "dist" / "server-hardening-audit.pyz"
 PKG = "server_hardening_audit"
 
@@ -32,10 +32,13 @@ def main() -> int:
             shutil.copytree(ROOT / data, BUILD / PKG / "_data" / data)
     for name in ("LICENSE", "NOTICE"):
         shutil.copy2(ROOT / name, BUILD / name)
-    OUT.parent.mkdir(exist_ok=True)
-    zipapp.create_archive(BUILD, OUT, interpreter="/usr/bin/env python3",
-                          main=f"{PKG}.cli:main", compressed=True)
-    print(f"built {OUT.relative_to(ROOT)} ({OUT.stat().st_size // 1024} KiB)")
+    # Our own __main__: zipapp's generated one discards main()'s return
+    # value, which would turn every exit code into 0.
+    shutil.copy2(src / "__main__.py", BUILD / "__main__.py")
+    out = Path(sys.argv[1]) if len(sys.argv) > 1 else OUT
+    out.parent.mkdir(parents=True, exist_ok=True)
+    zipapp.create_archive(BUILD, out, interpreter="/usr/bin/env python3", compressed=True)
+    print(f"built {out} ({out.stat().st_size // 1024} KiB)")
     return 0
 
 

@@ -314,8 +314,17 @@ class LiveRunner(Runner):
     @staticmethod
     def _read_bytes(path: str, limit: int) -> tuple[bytes | None, str | None, str | None]:
         try:
+            # Read in small chunks: procfs/sysfs handlers reject large single
+            # reads (ENOMEM on /proc/sys/*).
+            chunks, total = [], 0
             with open(path, "rb") as fh:
-                return fh.read(limit), None, None
+                while total < limit:
+                    chunk = fh.read(min(65536, limit - total))
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    total += len(chunk)
+            return b"".join(chunks), None, None
         except FileNotFoundError:
             return None, None, None
         except PermissionError as exc:
