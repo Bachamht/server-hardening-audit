@@ -39,7 +39,7 @@ limitations = "Match blocks are evaluated for root and each declared admin user 
 
 [control.refs]
 iso27001_2022 = ["A.8.5"]
-essential_eight = ["restrict-admin-privileges"]
+essential_eight = ["RAP-ML1-02"]
 
 [[control]]
 id = "ACC-02"
@@ -102,7 +102,7 @@ disruptive = true
 
 [control.refs]
 iso27001_2022 = ["A.8.2"]
-essential_eight = ["restrict-admin-privileges"]
+essential_eight = ["RAP-ML1-02"]
 
 [[control]]
 id = "ACC-04"
@@ -162,7 +162,7 @@ disruptive = true
 
 [control.refs]
 iso27001_2022 = ["A.8.2"]
-essential_eight = ["restrict-admin-privileges"]
+essential_eight = ["RAP-ML1-02"]
 
 [[control]]
 id = "ACC-06"
@@ -193,7 +193,6 @@ disruptive = true
 
 [control.refs]
 iso27001_2022 = ["A.8.5"]
-essential_eight = ["multi-factor-authentication"]
 
 # --- NETWORK --------------------------------------------------------------------
 
@@ -402,7 +401,7 @@ disruptive = false
 
 [control.refs]
 iso27001_2022 = ["A.8.8"]
-essential_eight = ["patch-operating-systems"]
+essential_eight = ["PO-ML1-05", "PO-ML1-06"]
 
 [[control]]
 id = "PAT-02"
@@ -444,7 +443,7 @@ disruptive = true
 
 [control.refs]
 iso27001_2022 = ["A.8.8"]
-essential_eight = ["patch-operating-systems"]
+essential_eight = ["PO-ML1-05", "PO-ML1-06"]
 
 [[control]]
 id = "PAT-03"
@@ -474,7 +473,7 @@ limitations = "Image age is a proxy: a recent build of an old base image passes.
 
 [control.refs]
 iso27001_2022 = ["A.8.8"]
-essential_eight = ["patch-applications"]
+essential_eight = ["PA-ML1-05", "PA-ML1-06"]
 
 # --- DETECTION ------------------------------------------------------------------
 
@@ -630,7 +629,7 @@ limitations = "Off-host copies cannot be verified from inside the host; they are
 
 [control.refs]
 iso27001_2022 = ["A.8.13"]
-essential_eight = ["regular-backups"]
+essential_eight = ["RB-ML1-01", "RB-ML1-03"]
 
 [[control]]
 id = "RES-02"
@@ -659,7 +658,7 @@ disruptive = false
 
 [control.refs]
 iso27001_2022 = ["A.8.13"]
-essential_eight = ["regular-backups"]
+essential_eight = ["RB-ML1-02", "RB-ML1-04"]
 
 [[control]]
 id = "RES-03"
@@ -803,4 +802,3 @@ remediation = "Keep AppArmor enabled (Ubuntu default) and put service profiles i
 disruptive = true
 
 [control.refs]
-essential_eight = ["application-control"]

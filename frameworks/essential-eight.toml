@@ -1,0 +1,513 @@
+# ASD Essential Eight -- the parts that apply to a single Linux server.
+#
+# Requirement IDs (e.g. PO-ML1-05) are assigned by this project, in the order
+# the requirements appear in Appendix A of the maturity model. They are not
+# ASD identifiers. Summaries are this project's own wording; see the sources
+# for the authoritative text.
+#
+# coverage = "full"     host evidence can establish the requirement
+# coverage = "partial"  host evidence can only disprove it; a PASS leaves the
+#                       requirement "Not assessed" with the evidence listed
+
+[framework]
+id = "essential-eight"
+name = "ASD Essential Eight"
+assessed_levels = [1]
+not_assessed_levels = [2, 3]
+disclaimer = """
+This view assesses only the parts of the Essential Eight that apply to a
+single Linux server. It is not an Essential Eight maturity assessment of an
+organisation.
+"""
+scope_quote = """
+The Essential Eight has been designed to protect organisations' \
+internet-connected information technology networks. While the principles \
+behind the Essential Eight may be applied to enterprise mobility and \
+operational technology networks, it was not designed for such purposes and \
+alternative mitigation strategies may be more appropriate to defend against \
+unique cyber threats to these environments.\
+"""
+scope_quote_source = "Essential Eight maturity model, ASD, November 2023"
+applicability_note = """
+Many Maturity Level One requirements name workstations, office productivity
+suites, web browsers, email clients, PDF software or Microsoft Office. Those
+are marked not applicable to a server. Requirements that apply but concern
+organisational processes (asset discovery, vulnerability scanning, access
+request approval) cannot be observed from inside one host and are reported
+as not assessed.
+"""
+rule = """
+A mitigation strategy meets Maturity Level One only if every applicable
+requirement is Effective (the assessment process guide's rule). One
+Ineffective requirement means the level is not achieved; any requirement
+without an outcome means it is not determined. A risk acceptance never turns
+an Ineffective requirement into an Effective one.
+"""
+
+[[framework.source]]
+title = "Essential Eight maturity model"
+publisher = "Australian Signals Directorate"
+version = "First published June 2017; last updated November 2023"
+url = "https://www.cyber.gov.au/"
+licence = "CC BY 4.0"
+used_for = "Requirements (Appendix A) and the scope statement quoted above"
+
+[[framework.source]]
+title = "Essential Eight assessment process guide"
+publisher = "Australian Signals Directorate"
+version = "First published November 2022; last updated October 2024"
+url = "https://www.cyber.gov.au/"
+licence = "CC BY 4.0"
+used_for = "Assessment outcome terms, the implementation rule, per-requirement context"
+
+[[framework.source]]
+title = "Essential Eight explained"
+publisher = "Australian Signals Directorate"
+version = "First published February 2017; last updated November 2023"
+url = "https://www.cyber.gov.au/"
+licence = "CC BY 4.0"
+used_for = "The list of eight mitigation strategies"
+
+# Outcome terms from the assessment process guide.
+[framework.terms]
+pass = "Effective"
+fail = "Ineffective"
+no_visibility = "No visibility"
+pending = "Not assessed (awaiting attestation)"
+partial = "Not assessed (partial evidence only)"
+not_assessed = "Not assessed"
+not_applicable = "Not applicable"
+withheld = "Withheld from this copy"
+
+# --- Strategies -----------------------------------------------------------------
+
+[[strategy]]
+id = "PA"
+name = "Patch applications"
+
+[[strategy]]
+id = "PO"
+name = "Patch operating systems"
+
+[[strategy]]
+id = "MFA"
+name = "Multi-factor authentication"
+
+[[strategy]]
+id = "RAP"
+name = "Restrict administrative privileges"
+
+[[strategy]]
+id = "AC"
+name = "Application control"
+
+[[strategy]]
+id = "OM"
+name = "Restrict Microsoft Office macros"
+
+[[strategy]]
+id = "UAH"
+name = "User application hardening"
+
+[[strategy]]
+id = "RB"
+name = "Regular backups"
+
+# --- Patch applications ---------------------------------------------------------
+
+[[requirement]]
+id = "PA-ML1-01"
+strategy = "PA"
+summary = "Assets are discovered automatically, at least every two weeks, to feed vulnerability scanning."
+applicability = "applicable"
+rationale = "An organisation-wide process; not observable from inside one host."
+
+[[requirement]]
+id = "PA-ML1-02"
+strategy = "PA"
+summary = "Vulnerability scanning uses a scanner whose vulnerability database is current."
+applicability = "applicable"
+rationale = "Vulnerability scanning is outside this tool's scope (no CVE matching)."
+
+[[requirement]]
+id = "PA-ML1-03"
+strategy = "PA"
+summary = "Online services are scanned daily for missing patches."
+applicability = "applicable"
+rationale = "The host serves online services, but scanning is an external process."
+
+[[requirement]]
+id = "PA-ML1-04"
+strategy = "PA"
+summary = "Office suites, browsers and extensions, email clients, PDF software and security products are scanned weekly for missing patches."
+applicability = "not_applicable"
+rationale = "A server does not run these end-user application classes."
+needs_review = true
+
+[[requirement]]
+id = "PA-ML1-05"
+strategy = "PA"
+summary = "Critical or actively exploited vulnerabilities in online services are patched within 48 hours of the fix being released."
+applicability = "applicable"
+coverage = "partial"
+rationale = "Container image age can reveal stale application builds but cannot prove a 48-hour patch window."
+needs_review = true
+
+[[requirement]]
+id = "PA-ML1-06"
+strategy = "PA"
+summary = "Other vulnerabilities in online services are patched within two weeks of the fix being released."
+applicability = "applicable"
+coverage = "partial"
+rationale = "Container image age can reveal stale builds but cannot prove the two-week window."
+needs_review = true
+
+[[requirement]]
+id = "PA-ML1-07"
+strategy = "PA"
+summary = "Office suites, browsers and extensions, email clients, PDF software and security products are patched within two weeks."
+applicability = "not_applicable"
+rationale = "A server does not run these end-user application classes."
+needs_review = true
+
+[[requirement]]
+id = "PA-ML1-08"
+strategy = "PA"
+summary = "Online services whose vendor no longer supports them are removed."
+applicability = "applicable"
+rationale = "Requires knowing each application's vendor support status; not collected in this version."
+
+[[requirement]]
+id = "PA-ML1-09"
+strategy = "PA"
+summary = "Unsupported office suites, browsers, email clients, PDF software, Flash Player and security products are removed."
+applicability = "not_applicable"
+rationale = "A server does not run these end-user application classes."
+
+# --- Patch operating systems ----------------------------------------------------
+
+[[requirement]]
+id = "PO-ML1-01"
+strategy = "PO"
+summary = "Assets are discovered automatically, at least every two weeks, to feed vulnerability scanning."
+applicability = "applicable"
+rationale = "An organisation-wide process; not observable from inside one host."
+
+[[requirement]]
+id = "PO-ML1-02"
+strategy = "PO"
+summary = "Vulnerability scanning uses a scanner whose vulnerability database is current."
+applicability = "applicable"
+rationale = "Vulnerability scanning is outside this tool's scope; a package manager's upgradable list is not a vulnerability scanner."
+
+[[requirement]]
+id = "PO-ML1-03"
+strategy = "PO"
+summary = "Operating systems of internet-facing servers and network devices are scanned daily for missing patches."
+applicability = "applicable"
+rationale = "Scanning is an external process; not observable from inside the host."
+
+[[requirement]]
+id = "PO-ML1-04"
+strategy = "PO"
+summary = "Operating systems of workstations and non-internet-facing servers and devices are scanned every two weeks."
+applicability = "not_applicable"
+rationale = "Concerns other asset classes; the audited host is an internet-facing server."
+needs_review = true
+
+[[requirement]]
+id = "PO-ML1-05"
+strategy = "PO"
+summary = "Critical or actively exploited OS vulnerabilities on internet-facing servers are patched within 48 hours of the fix being released."
+applicability = "applicable"
+coverage = "full"
+rationale = "Automatic security updates that ran within the last 48 hours, no pending security updates and no pending reboot together show the window is being met at the time of the audit."
+needs_review = true
+
+[[requirement]]
+id = "PO-ML1-06"
+strategy = "PO"
+summary = "Other OS vulnerabilities on internet-facing servers are patched within two weeks of the fix being released."
+applicability = "applicable"
+coverage = "full"
+rationale = "Same evidence as PO-ML1-05; the shorter window implies the longer one."
+needs_review = true
+
+[[requirement]]
+id = "PO-ML1-07"
+strategy = "PO"
+summary = "OS vulnerabilities on workstations and non-internet-facing servers and devices are patched within one month."
+applicability = "not_applicable"
+rationale = "Concerns other asset classes; the audited host is an internet-facing server."
+needs_review = true
+
+[[requirement]]
+id = "PO-ML1-08"
+strategy = "PO"
+summary = "Operating systems no longer supported by their vendor are replaced."
+applicability = "applicable"
+rationale = "The assessment process guide suggests checking /etc/os-release against distribution support dates. The release is recorded in every run, but this version ships no support-date table, so no verdict is made."
+
+# --- Multi-factor authentication ------------------------------------------------
+
+[[requirement]]
+id = "MFA-ML1-01"
+strategy = "MFA"
+summary = "Users of the organisation's own online services holding sensitive data authenticate with MFA."
+applicability = "applicable"
+rationale = "The host serves online services; their login flows are application behaviour, not host configuration. At this level MFA focuses on online services, not server administration."
+
+[[requirement]]
+id = "MFA-ML1-02"
+strategy = "MFA"
+summary = "Users of third-party online services holding the organisation's sensitive data authenticate with MFA."
+applicability = "not_applicable"
+rationale = "Concerns the organisation's use of third-party services, not this host."
+
+[[requirement]]
+id = "MFA-ML1-03"
+strategy = "MFA"
+summary = "Where available, MFA is used for third-party online services holding non-sensitive data."
+applicability = "not_applicable"
+rationale = "Concerns the organisation's use of third-party services, not this host."
+
+[[requirement]]
+id = "MFA-ML1-04"
+strategy = "MFA"
+summary = "Staff using the organisation's own online customer services with sensitive customer data authenticate with MFA."
+applicability = "applicable"
+rationale = "Application login behaviour; not observable from host configuration."
+
+[[requirement]]
+id = "MFA-ML1-05"
+strategy = "MFA"
+summary = "Staff using third-party online customer services with sensitive customer data authenticate with MFA."
+applicability = "not_applicable"
+rationale = "Concerns the organisation's use of third-party services, not this host."
+
+[[requirement]]
+id = "MFA-ML1-06"
+strategy = "MFA"
+summary = "Customers of online customer services holding sensitive customer data authenticate with MFA."
+applicability = "applicable"
+rationale = "Application login behaviour; not observable from host configuration."
+
+[[requirement]]
+id = "MFA-ML1-07"
+strategy = "MFA"
+summary = "MFA combines something the user has with something they know, or something they have unlocked by something they know or are."
+applicability = "applicable"
+rationale = "Describes the online services' MFA factors; not observable from host configuration."
+
+# --- Restrict administrative privileges -----------------------------------------
+
+[[requirement]]
+id = "RAP-ML1-01"
+strategy = "RAP"
+summary = "Requests for privileged access are validated when first made."
+applicability = "applicable"
+rationale = "An approval process; evidence is request records, not host state."
+
+[[requirement]]
+id = "RAP-ML1-02"
+strategy = "RAP"
+summary = "Privileged users have a dedicated privileged account used only for privileged duties."
+applicability = "applicable"
+coverage = "partial"
+rationale = "The host can show that root cannot log in directly, that application accounts hold no privileges and that full root is not granted without a password; whether each administrator's account is dedicated to privileged work is not observable."
+needs_review = true
+
+[[requirement]]
+id = "RAP-ML1-03"
+strategy = "RAP"
+summary = "Privileged accounts, unless explicitly authorised, cannot reach the internet, email or web services."
+applicability = "applicable"
+rationale = "Egress restrictions per account are not assessed in this version."
+needs_review = true
+
+[[requirement]]
+id = "RAP-ML1-04"
+strategy = "RAP"
+summary = "Privileged accounts authorised for online services are limited to what their duties require."
+applicability = "applicable"
+rationale = "Depends on documented authorisations; not observable from host state."
+
+[[requirement]]
+id = "RAP-ML1-05"
+strategy = "RAP"
+summary = "Privileged users work in separate privileged and unprivileged operating environments."
+applicability = "not_applicable"
+rationale = "Operating-environment separation concerns administrators' workstations, not the server they administer."
+needs_review = true
+
+[[requirement]]
+id = "RAP-ML1-06"
+strategy = "RAP"
+summary = "Unprivileged accounts cannot log on to privileged operating environments."
+applicability = "not_applicable"
+rationale = "Operating-environment separation concerns administrators' workstations."
+needs_review = true
+
+[[requirement]]
+id = "RAP-ML1-07"
+strategy = "RAP"
+summary = "Privileged accounts, other than local administrator accounts, cannot log on to unprivileged operating environments."
+applicability = "not_applicable"
+rationale = "Operating-environment separation concerns administrators' workstations."
+needs_review = true
+
+# --- Application control --------------------------------------------------------
+
+[[requirement]]
+id = "AC-ML1-01"
+strategy = "AC"
+summary = "Application control is implemented on workstations."
+applicability = "not_applicable"
+rationale = "Maturity Level One requires application control on workstations only; internet-facing servers are added at Maturity Level Two."
+
+[[requirement]]
+id = "AC-ML1-02"
+strategy = "AC"
+summary = "Application control covers user profiles and temporary folders used by the OS, browsers and email clients."
+applicability = "not_applicable"
+rationale = "Qualifies the workstation implementation required at this level."
+
+[[requirement]]
+id = "AC-ML1-03"
+strategy = "AC"
+summary = "Application control limits executables, libraries, scripts, installers and similar content to an approved set."
+applicability = "not_applicable"
+rationale = "Qualifies the workstation implementation required at this level."
+
+# --- Restrict Microsoft Office macros --------------------------------------------
+
+[[requirement]]
+id = "OM-ML1-01"
+strategy = "OM"
+summary = "Office macros are disabled for users without a demonstrated business need."
+applicability = "not_applicable"
+rationale = "Microsoft Office does not run on a Linux server."
+
+[[requirement]]
+id = "OM-ML1-02"
+strategy = "OM"
+summary = "Office macros in files from the internet are blocked."
+applicability = "not_applicable"
+rationale = "Microsoft Office does not run on a Linux server."
+
+[[requirement]]
+id = "OM-ML1-03"
+strategy = "OM"
+summary = "Antivirus scanning of Office macros is enabled."
+applicability = "not_applicable"
+rationale = "Microsoft Office does not run on a Linux server."
+
+[[requirement]]
+id = "OM-ML1-04"
+strategy = "OM"
+summary = "Users cannot change Office macro security settings."
+applicability = "not_applicable"
+rationale = "Microsoft Office does not run on a Linux server."
+
+# --- User application hardening -------------------------------------------------
+
+[[requirement]]
+id = "UAH-ML1-01"
+strategy = "UAH"
+summary = "Internet Explorer 11 is disabled or removed."
+applicability = "not_applicable"
+rationale = "Internet Explorer does not exist on Linux."
+
+[[requirement]]
+id = "UAH-ML1-02"
+strategy = "UAH"
+summary = "Web browsers do not run Java from the internet."
+applicability = "not_applicable"
+rationale = "A server does not run an interactive web browser."
+
+[[requirement]]
+id = "UAH-ML1-03"
+strategy = "UAH"
+summary = "Web browsers do not process web advertisements from the internet."
+applicability = "not_applicable"
+rationale = "A server does not run an interactive web browser."
+
+[[requirement]]
+id = "UAH-ML1-04"
+strategy = "UAH"
+summary = "Users cannot change web browser security settings."
+applicability = "not_applicable"
+rationale = "A server does not run an interactive web browser."
+
+# --- Regular backups ------------------------------------------------------------
+
+[[requirement]]
+id = "RB-ML1-01"
+strategy = "RB"
+summary = "Backups of data, applications and settings are made and kept according to business criticality and continuity needs."
+applicability = "applicable"
+coverage = "partial"
+rationale = "The host shows schedules, freshness against the declared RPO and retention; the assessment process guide also expects documented continuity requirements."
+
+[[requirement]]
+id = "RB-ML1-02"
+strategy = "RB"
+summary = "Backups of data, applications and settings are synchronised so they restore to a common point in time."
+applicability = "applicable"
+coverage = "partial"
+rationale = "A restore drill exercises one data set; synchronisation across data, applications and settings needs a wider view."
+needs_review = true
+
+[[requirement]]
+id = "RB-ML1-03"
+strategy = "RB"
+summary = "Backups are kept in a secure and resilient manner."
+applicability = "applicable"
+coverage = "partial"
+rationale = "An off-host copy (attested under RES-01) shows resilience; encryption and access to that copy are not assessed."
+
+[[requirement]]
+id = "RB-ML1-04"
+strategy = "RB"
+summary = "Restoring from backups to a common point in time is tested in disaster recovery exercises."
+applicability = "applicable"
+coverage = "full"
+rationale = "The restore drill (RES-02) is such a test, recorded as an attestation."
+needs_review = true
+
+[[requirement]]
+id = "RB-ML1-05"
+strategy = "RB"
+summary = "Unprivileged accounts cannot access other accounts' backups."
+applicability = "applicable"
+rationale = "Backup file permissions are listed in RES-01 evidence but not judged in this version."
+
+[[requirement]]
+id = "RB-ML1-06"
+strategy = "RB"
+summary = "Unprivileged accounts cannot modify or delete backups."
+applicability = "applicable"
+rationale = "Backup file permissions are listed in RES-01 evidence but not judged in this version."
+
+# --- Evidence collected towards higher levels (not assessed) ---------------------
+
+[[beyond]]
+level = 2
+strategy = "MFA"
+summary = "MFA is used to authenticate privileged users of systems."
+controls = ["ACC-06"]
+note = "SSH administration is 'privileged users of systems'; at Maturity Level One MFA focuses on online services."
+
+[[beyond]]
+level = 2
+strategy = "AC"
+summary = "Application control is implemented on internet-facing servers."
+controls = ["BAS-04"]
+note = "AppArmor/SELinux confine programs but do not restrict execution to an approved set; at best a weak counterpart."
+
+[[beyond]]
+level = 3
+strategy = "RAP"
+summary = "Privileged access is limited to what users and services need."
+controls = ["ACC-03", "ACC-05"]
+note = "Application accounts without privileges and no passwordless full root are host-level evidence for this."

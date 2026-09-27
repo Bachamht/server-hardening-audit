@@ -1,0 +1,158 @@
+# ISO/IEC 27001:2022 Annex A -- the technological controls a single Linux
+# server can give evidence for, plus A.5.17 which two controls reference.
+#
+# The standard's control titles and text are copyrighted. Only the control
+# numbers are used; each summary is this project's own one-line description.
+# Check numbers and scope against your licensed copy.
+
+[framework]
+id = "iso27001-2022"
+name = "ISO/IEC 27001:2022 Annex A (server subset)"
+disclaimer = """
+This view lists host-level technical evidence per Annex A control. Annex A
+controls are organisational: they cover policy, process and people as well as
+configuration. A PASS here means the host's configuration supports the
+control; it is not a statement of conformity with ISO/IEC 27001.
+"""
+rule = """
+A control's host result is FAIL if any mapped check fails, UNKNOWN if any is
+undetermined, MANUAL if any awaits an attestation, and PASS only when every
+mapped check passes. Controls with no mapped check are NOT ASSESSED; controls
+that do not apply to a server are NOT APPLICABLE. The two are listed apart.
+"""
+
+[[framework.source]]
+title = "ISO/IEC 27001:2022, Annex A"
+publisher = "ISO/IEC"
+version = "2022"
+url = "https://www.iso.org/"
+licence = "Copyrighted; control numbers only"
+used_for = "Control numbering"
+
+[framework.terms]
+pass = "PASS"
+fail = "FAIL"
+no_visibility = "UNKNOWN"
+pending = "MANUAL"
+partial = "NOT ASSESSED (partial evidence)"
+not_assessed = "NOT ASSESSED"
+not_applicable = "NOT APPLICABLE"
+withheld = "WITHHELD"
+
+[[requirement]]
+id = "A.5.17"
+summary = "Authentication secrets (passwords, keys) are issued, held and revoked under control."
+applicability = "applicable"
+rationale = "Outside chapter 8 but directly evidenced by key hygiene and the absence of empty passwords."
+needs_review = true
+
+[[requirement]]
+id = "A.8.1"
+summary = "Information on end-user devices is protected."
+applicability = "not_applicable"
+rationale = "Concerns laptops, phones and workstations, not servers."
+
+[[requirement]]
+id = "A.8.2"
+summary = "Privileged access is restricted and managed."
+applicability = "applicable"
+
+[[requirement]]
+id = "A.8.5"
+summary = "Authentication to systems uses techniques strong enough for the access granted."
+applicability = "applicable"
+
+[[requirement]]
+id = "A.8.6"
+summary = "Resource use is monitored and capacity is planned."
+applicability = "applicable"
+coverage = "partial"
+rationale = "Disk and inode headroom is one input; monitoring and planning are processes."
+needs_review = true
+
+[[requirement]]
+id = "A.8.7"
+summary = "Systems are protected against malware."
+applicability = "applicable"
+rationale = "No malware-protection check in this version."
+
+[[requirement]]
+id = "A.8.8"
+summary = "Technical vulnerabilities are identified and remediated in time."
+applicability = "applicable"
+
+[[requirement]]
+id = "A.8.9"
+summary = "Security-relevant configuration is defined, applied and kept under control."
+applicability = "applicable"
+coverage = "partial"
+rationale = "Kernel hardening parameters are one configuration baseline; configuration management as a process is not observable."
+needs_review = true
+
+[[requirement]]
+id = "A.8.13"
+summary = "Backups are made and restores are tested."
+applicability = "applicable"
+
+[[requirement]]
+id = "A.8.15"
+summary = "Logs of activity and security events are produced and retained."
+applicability = "applicable"
+
+[[requirement]]
+id = "A.8.16"
+summary = "Systems are monitored for anomalous behaviour and acted upon."
+applicability = "applicable"
+coverage = "partial"
+rationale = "Brute-force response and audit tooling are host-level monitoring; review and response are processes."
+needs_review = true
+
+[[requirement]]
+id = "A.8.17"
+summary = "System clocks are synchronised to an approved time source."
+applicability = "applicable"
+
+[[requirement]]
+id = "A.8.19"
+summary = "Software installation on operational systems is controlled."
+applicability = "applicable"
+rationale = "No software-installation check in this version."
+
+[[requirement]]
+id = "A.8.20"
+summary = "Networks and their devices are secured and controlled."
+applicability = "applicable"
+
+[[requirement]]
+id = "A.8.21"
+summary = "Network services are identified and their security is managed."
+applicability = "applicable"
+coverage = "partial"
+rationale = "Only the exposure of listening services is checked."
+needs_review = true
+
+[[requirement]]
+id = "A.8.22"
+summary = "Groups of services, users and systems are segregated on networks."
+applicability = "applicable"
+rationale = "Loopback binding (NET-02) is a narrow form of segregation; not mapped in this version."
+needs_review = true
+
+[[requirement]]
+id = "A.8.23"
+summary = "Access to external websites is filtered."
+applicability = "not_applicable"
+rationale = "Concerns users' web browsing, not a server."
+
+[[requirement]]
+id = "A.8.24"
+summary = "Cryptography, including key management, is used according to defined rules."
+applicability = "applicable"
+coverage = "partial"
+rationale = "Only certificate validity and expiry are checked."
+
+[[requirement]]
+id = "A.8.32"
+summary = "Changes to systems are controlled."
+applicability = "applicable"
+rationale = "A process control; diffing two runs shows changes but not whether they were approved."

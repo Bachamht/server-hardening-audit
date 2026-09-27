@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from . import __version__, collectors, engine, evidence, policy, redact, report
+from . import __version__, collectors, engine, evidence, frameworks, policy, redact, report
 from .loader import ConfigError, Control, load_controls, load_profile
 from .runner import LiveRunner, ReplayRunner
 
@@ -165,10 +165,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 # --- report ---------------------------------------------------------------------
 
 
-def cmd_report(args: argparse.Namespace) -> int:
-    if args.framework or args.attest:
-        raise ToolError("--framework and --attest are not available in this build yet")
-    run_dir = Path(args.run_dir)
+def _load_run(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     try:
         run = json.loads((run_dir / "run.json").read_text())
         doc = json.loads((run_dir / "findings.json").read_text())
@@ -177,11 +174,31 @@ def cmd_report(args: argparse.Namespace) -> int:
     errors = report.validate(doc)
     if errors:
         raise ToolError("findings.json is invalid: " + "; ".join(errors[:5]))
-    if args.format == "json":
-        print(json.dumps(doc, indent=2, ensure_ascii=False))
+    return run, doc
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    if args.attest:
+        raise ToolError("--attest is not available in this build yet")
+    run, doc = _load_run(Path(args.run_dir))
+    if args.framework:
+        fw = frameworks.load(args.framework, load_controls(args.controls))
+        view = frameworks.evaluate(fw, doc)
+        text = (json.dumps(view, indent=2, ensure_ascii=False) + "\n" if args.format == "json"
+                else frameworks.render_markdown(fw, view, run))
+    elif args.format == "json":
+        text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     else:
-        print(report.render_markdown(doc, run))
+        text = report.render_markdown(doc, run)
+    _emit(text, args.out)
     return engine.exit_code(doc["findings"])
+
+
+def _emit(text: str, out: str | None) -> None:
+    if out:
+        Path(out).write_text(text, encoding="utf-8")
+    else:
+        sys.stdout.write(text if text.endswith("\n") else text + "\n")
 
 
 # --- redact-check ---------------------------------------------------------------
@@ -241,9 +258,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("report", help="re-render a run's report")
     s.add_argument("run_dir")
-    s.add_argument("--framework", choices=["essential-eight", "iso27001-2022"])
+    s.add_argument("--framework", choices=list(frameworks.NAMES))
     s.add_argument("--attest", action="append", default=[], metavar="FILE")
     s.add_argument("--format", choices=["md", "json"], default="md")
+    s.add_argument("--controls", help="controls used for framework mapping (default: bundled)")
+    s.add_argument("--out", metavar="FILE", help="write to FILE instead of stdout")
     s.set_defaults(fn=cmd_report)
 
     s = sub.add_parser("probe", help="probe a host from outside (operator machine)")
