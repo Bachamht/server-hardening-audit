@@ -192,6 +192,11 @@ the command (`sudo lynis audit system --quiet --no-colors`), then re-run
 version. The number that matters is the same score measured again after
 remediation; do not chase 100.
 
+Running Lynis changes the host: besides its log and report files, its test
+PKGS-7392 runs `apt-get update`, refreshing the package lists that PAT-02
+reads. Tell the user before running it, and note in the report (an operator
+note, §5) that package-list freshness after a Lynis run comes from Lynis.
+
 ### 3.6 If the engine cannot run on the host
 
 If the host has no usable Python, read `controls/linux-baseline.toml` on
