@@ -32,3 +32,28 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install pytest
       - run: python -m pytest -q
+      - name: Build the .pyz and run it
+        run: |
+          python tools/build_pyz.py
+          python dist/server-hardening-audit.pyz list > /dev/null
+      - name: Redaction gate on published examples
+        run: |
+          if [ -d examples ] && [ -n "$(ls -A examples)" ]; then
+            python -m server_hardening_audit redact-check examples
+          fi
+
+  integration:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:22.04", "ubuntu:24.04"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/build_pyz.py
+      - name: Audit inside ${{ matrix.image }}
+        run: docker run --rm -v "$PWD:/src:ro" ${{ matrix.image }} bash /src/tests/integration/container.sh

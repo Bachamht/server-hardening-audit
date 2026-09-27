@@ -4,6 +4,7 @@ audit-runs/
 
 # Build and runtime artefacts
 dist/
+build/
 *.pyz
 __pycache__/
 *.py[cod]
