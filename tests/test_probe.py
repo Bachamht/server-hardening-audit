@@ -78,6 +78,13 @@ def test_password_offered_fails_acc01():
     assert atts["NET-04"]["verdict"] == "PASS"
 
 
+def test_unreachable_tls_is_not_a_certificate_failure():
+    r = _result()
+    r["tls"] = [{"domain": "site-a.example", "verified": False, "reachable": False,
+                 "error": "timed out"}]
+    assert "NET-05" not in {a["control"] for a in probe.attestations(r, [22], 14)}
+
+
 def test_no_public_ports_means_no_net04():
     assert "NET-04" not in {a["control"] for a in probe.attestations(_result(), None, 14)}
 

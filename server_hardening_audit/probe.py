@@ -118,7 +118,9 @@ def tls_check(host: str, domain: str, timeout: float) -> dict[str, Any]:
             cert = conn.getpeercert() or {}
     except ssl.SSLCertVerificationError as exc:
         return {"domain": domain, "verified": False, "error": exc.verify_message}
-    except (OSError, ssl.SSLError) as exc:
+    except OSError as exc:
+        return {"domain": domain, "verified": False, "reachable": False, "error": str(exc)}
+    except ssl.SSLError as exc:
         return {"domain": domain, "verified": False, "error": str(exc)}
     not_after = dt.datetime.fromtimestamp(ssl.cert_time_to_seconds(cert["notAfter"]),
                                           dt.timezone.utc)
@@ -165,8 +167,9 @@ def attestations(result: dict[str, Any], public_ports: list[int] | None,
             "evidence": ["probe.json"],
             "measurements": {f"methods_{s['user']}": s["methods"] for s in ssh},
         })
-    if result["tls"]:
-        bad = [t["domain"] for t in result["tls"]
+    reached = [t for t in result["tls"] if t.get("reachable", True)]
+    if reached:
+        bad = [t["domain"] for t in reached
                if not t["verified"] or t.get("days_left", 0) < tls_min_days]
         out.append({
             "control": "NET-05", "verdict": "FAIL" if bad else "PASS",
@@ -174,7 +177,7 @@ def attestations(result: dict[str, Any], public_ports: list[int] | None,
             "performed_at": now, "performed_by": by, "source": "probe",
             "evidence": ["probe.json"],
             "measurements": {"domains_failing": bad, **{
-                f"days_left_{i + 1}": t.get("days_left", -1) for i, t in enumerate(result["tls"])
+                f"days_left_{i + 1}": t.get("days_left", -1) for i, t in enumerate(reached)
             }},
         })
     return out

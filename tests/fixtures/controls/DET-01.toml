@@ -6,7 +6,6 @@ call = [
   { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "bantime"], stdout = "3600\n" },
   { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "findtime"], stdout = "600\n" },
   { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "maxretry"], stdout = "5\n" },
-  { op = "cmd", argv = ["fail2ban-client", "get", "sshd", "backend"], stdout = "systemd\n" },
   { op = "derive", deriver = "fail2ban_log_bans", path = "/var/log/fail2ban.log", content_file = "fail2ban-log.synthetic.txt" },
   { op = "derive", deriver = "fail2ban_log_bans", path = "/var/log/fail2ban.log.1", missing = true },
 ]

@@ -18,7 +18,7 @@ from . import (
 )
 from .patching import DPKG_FMT, dpkg_installed
 
-F2B_PARAMS = ("bantime", "findtime", "maxretry", "backend")
+F2B_PARAMS = ("bantime", "findtime", "maxretry")
 F2B_LOGS = ("/var/log/fail2ban.log", "/var/log/fail2ban.log.1")
 
 
@@ -31,7 +31,7 @@ def _unit_states(ctx: CollectContext, units: list[str]) -> dict[str, str]:
     run("systemctl", "is-active", "fail2ban", "sshguard", "crowdsec"),
     run("fail2ban-client", "status"),
     run("fail2ban-client", "status", "<ssh-jail>"),
-    run("fail2ban-client", "get", "<ssh-jail>", "<bantime|findtime|maxretry|backend>"),
+    run("fail2ban-client", "get", "<ssh-jail>", "<bantime|findtime|maxretry>"),
     derived("fail2ban_log_bans", "/var/log/fail2ban.log",
             "and fail2ban.log.1; ban counts per day, no addresses"),
     run("journalctl", "--no-pager", "-u", "fail2ban", "--since", "7 days ago", "-o", "cat",
@@ -84,7 +84,7 @@ def brute_force(ctx: CollectContext) -> dict[str, Any]:
     out["_highlights"] = [
         f"fail2ban jail '{jail}': {bans_7d} ban(s) in the last 7 days (source: {source}), "
         f"{total} since the service started",
-        "bantime {bantime}s, findtime {findtime}s, maxretry {maxretry}, backend {backend}"
+        "bantime {bantime}s, findtime {findtime}s, maxretry {maxretry}"
         .format(**{k: params.get(k, "?") for k in F2B_PARAMS}),
     ]
     out.update({"jail": jail, "total_banned_since_start": total, "bans_7d": bans_7d,

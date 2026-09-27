@@ -70,7 +70,7 @@ def ufw_status(raw: str) -> dict[str, Any]:
             if not m:
                 raise ParseError(f"unexpected ufw rule line: {s[:80]!r}")
             to = m.group("to").strip()
-            src = m.group("from").strip()
+            src = m.group("from").split("#", 1)[0].strip()
             out["rules"].append({
                 "to": to.replace(" (v6)", ""), "action": m.group("action"),
                 "direction": m.group("dir") or "IN", "from": src.replace(" (v6)", ""),

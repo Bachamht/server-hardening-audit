@@ -14,7 +14,7 @@ from server_hardening_audit.runner import LiveRunner
 SAMPLES = {
     "<user>": "admin", "<unit>...": "ssh.service", "<container-id>...": "5f1a2b3c4d5e",
     "<image-id>...": "sha256:aa11bb22", "<ssh-jail>": "sshd",
-    "<bantime|findtime|maxretry|backend>": "bantime", "<home>": "/home/admin",
+    "<bantime|findtime|maxretry>": "bantime", "<home>": "/home/admin",
     "<file>": "x.conf", "<dir>": "/etc/systemd/journald.conf.d", "<key>": "kernel/kptr_restrict",
     "<backup_path>": "/var/backups", "<file>.conf": "10-x.conf",
 }

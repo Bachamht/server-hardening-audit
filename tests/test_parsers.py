@@ -36,6 +36,10 @@ def test_ufw_status():
     assert {"to": "80,443/tcp", "action": "ALLOW", "direction": "IN", "from": "Anywhere",
             "v6": True} in st["rules"]
     assert parse("ufw_status", "Status: inactive\n")["active"] is False
+    commented = parse("ufw_status", "Status: active\nDefault: deny (incoming)\n\n"
+                      "To  Action  From\n--  ------  ----\n"
+                      "80,443/tcp                 ALLOW IN    173.245.48.0/20            # CDN\n")
+    assert commented["rules"][0]["from"] == "173.245.48.0/20"
     with pytest.raises(ParseError):
         parse("ufw_status", "ERROR: You need to be root\n")
 
