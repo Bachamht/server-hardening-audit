@@ -2,7 +2,7 @@
 
 All notable changes are recorded here. Versions follow semantic versioning.
 
-## [Unreleased] — 0.1.0
+## [0.1.0] — 2026-09-27
 
 First version.
 

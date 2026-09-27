@@ -1,0 +1,1723 @@
+{
+  "schema_version": "1",
+  "tool": {
+    "name": "server-hardening-audit",
+    "version": "0.1.0"
+  },
+  "run": {
+    "id": "20260927T084403Z-host-01",
+    "mode": "replay",
+    "started_at": "2026-09-27T08:44:03Z",
+    "finished_at": "2026-09-27T08:44:06Z",
+    "host": {
+      "hostname": "host-01",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "Linux 6.8.0-142-generic",
+      "virtualization": "microsoft",
+      "euid": 0
+    },
+    "profile": "prod-vps",
+    "controls_sha256": "ec37d1ba9a675455af6c27adb5b8e97e55f18ddd5f4262689a68ee32a0e72159"
+  },
+  "findings": [
+    {
+      "id": "ACC-01",
+      "title": "SSH accepts keys only and refuses root login",
+      "domain": "access",
+      "severity": "critical",
+      "verdict": "FAIL",
+      "basis": "verified",
+      "summary": "permitrootlogin is 'without-password' (expected 'no')",
+      "details": {
+        "assertion": {
+          "observed": {
+            "passwordauthentication": "no",
+            "kbdinteractiveauthentication": "no",
+            "permitrootlogin": "without-password",
+            "permitemptypasswords": "no",
+            "pubkeyauthentication": "yes"
+          }
+        },
+        "collected": {
+          "sshd": {
+            "effective": {
+              "passwordauthentication": "no",
+              "permitrootlogin": "without-password",
+              "pubkeyauthentication": "yes",
+              "kbdinteractiveauthentication": "no",
+              "permitemptypasswords": "no",
+              "authenticationmethods": "any",
+              "usepam": "yes",
+              "maxauthtries": "6",
+              "authorizedkeysfile": ".ssh/authorized_keys .ssh/authorized_keys2"
+            },
+            "differences": {},
+            "evaluated": [
+              "global"
+            ],
+            "include_patterns": [
+              "/etc/ssh/sshd_config.d/*.conf"
+            ],
+            "dropins": [
+              {
+                "path": "/etc/ssh/sshd_config.d/50-cloud-init.conf",
+                "loaded": true,
+                "mode": 384,
+                "owner": "root"
+              },
+              {
+                "path": "/etc/ssh/sshd_config.d/50-cloud-init.conf.bak",
+                "loaded": false,
+                "mode": 384,
+                "owner": "root"
+              }
+            ],
+            "match_blocks": false
+          }
+        },
+        "corroboration": [
+          {
+            "verdict": "PASS",
+            "method": "Unauthenticated SSH connection offering no credentials; methods advertised by the server were read from the handshake",
+            "performed_at": "2026-09-27T07:52:44Z",
+            "performed_by": "server-hardening-audit 0.1.0.dev0 probe",
+            "evidence": [
+              {
+                "path": "probe.json",
+                "sha256": "d8a2c619e22d94bd7c4783722cafd4dc1b5ce75f2861e301e9f54e58df0e7cc1"
+              }
+            ],
+            "measurements": {
+              "methods_root": [
+                "publickey"
+              ]
+            },
+            "source": "probe",
+            "file": "probe-attestation.public.toml",
+            "agrees": false
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/ACC-01/index.json",
+        "evidence/ACC-01/01-sshd-T.txt",
+        "evidence/ACC-01/02-etc_ssh_sshd_config",
+        "evidence/ACC-01/03-glob-etc_ssh_sshd_config.d_.json",
+        "evidence/ACC-01/04-etc_ssh_sshd_config.d_50-cloud-init.conf"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.5"
+        ],
+        "essential_eight": [
+          "RAP-ML1-02"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Set PasswordAuthentication no, KbdInteractiveAuthentication no and PermitRootLogin no in the first-loaded drop-in; validate with `sshd -t`, apply with a reload, then prove a new key login works before closing the current session.",
+        "disruptive": true
+      },
+      "risk_acceptance": {
+        "reason": "Root may log in with a key only; password login is off. The only authorised key lives on the owner's own laptop and there are no other administrators, so exploiting this requires compromising that laptop first, which is outside this host's control.",
+        "accepted_by": "owner",
+        "review_by": "2026-12-31",
+        "expired": false,
+        "file": "risk-acceptance.toml"
+      },
+      "rationale": "Password logins make the host a target for credential stuffing and brute\nforce; direct root login removes the audit trail of who acted. The verdict\nuses the configuration sshd itself resolves (`sshd -T`), not the main\nconfig file: drop-in files, Include order (first match wins) and cloud-image\ndefaults routinely override what sshd_config appears to say.",
+      "limitations": "Match blocks are evaluated for root and each declared admin user from localhost; Match rules keyed on other source addresses are not evaluated."
+    },
+    {
+      "id": "NET-04",
+      "title": "External reachability matches the declared public ports",
+      "domain": "network",
+      "severity": "critical",
+      "verdict": "PASS",
+      "basis": "attested",
+      "summary": "PASS by attestation: TCP connect probe of 14 ports on ipv4 192.0.2.10 from the operator's network (the list of probed internal ports is omitted from the public copy)",
+      "details": {
+        "attestations": [
+          {
+            "verdict": "PASS",
+            "method": "TCP connect probe of 14 ports on ipv4 192.0.2.10 from the operator's network (the list of probed internal ports is omitted from the public copy)",
+            "performed_at": "2026-09-27T07:52:44Z",
+            "performed_by": "server-hardening-audit 0.1.0.dev0 probe",
+            "evidence": [
+              {
+                "path": "probe.json",
+                "sha256": "d8a2c619e22d94bd7c4783722cafd4dc1b5ce75f2861e301e9f54e58df0e7cc1"
+              }
+            ],
+            "measurements": {
+              "declared_public_ports": [
+                22,
+                80,
+                443
+              ],
+              "unexpected_open_ports": [],
+              "open_ipv4": [
+                22
+              ]
+            },
+            "source": "probe",
+            "file": "probe-attestation.public.toml"
+          }
+        ],
+        "automated_result": {
+          "verdict": "MANUAL",
+          "summary": "requires an operator procedure and an attestation"
+        },
+        "notes": [
+          {
+            "text": "The external probe ran from the owner's own network at 07:52 UTC, before the 08:28 reboot. The reboot changed no firewall rule or listener (NET-01 and NET-02 are identical in both runs), so the result still describes this host.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.20"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Investigate any port reachable from outside that is not declared public: find the listener (NET-02) or the container publishing it (NET-03).",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "Every in-host check proves what is configured; only a probe from outside\nproves what the internet can reach. It is the only control that confirms\nNET-01 to NET-03 actually hold.",
+      "limitations": ""
+    },
+    {
+      "id": "RES-01",
+      "title": "Backups exist, are recent and have a retention policy",
+      "domain": "resilience",
+      "severity": "critical",
+      "verdict": "MANUAL",
+      "basis": "pending",
+      "summary": "scheduled = True, retention_evidence = True; age of newest backup (hours) = 5.7 (limit 24) -- remaining part needs an attestation",
+      "details": {
+        "assertion": {
+          "parts": [
+            {
+              "op": "kv_equals",
+              "verdict": "PASS",
+              "summary": "scheduled = True, retention_evidence = True",
+              "observed": {
+                "scheduled": true,
+                "retention_evidence": true
+              }
+            },
+            {
+              "op": "value_at_most",
+              "verdict": "PASS",
+              "summary": "age of newest backup (hours) = 5.7 (limit 24)",
+              "value": 5.7
+            }
+          ]
+        },
+        "collected": {
+          "backups": {
+            "scheduled": true,
+            "schedules": [
+              "cron /var/spool/cron/crontabs/root: <schedule>",
+              "timer dpkg-db-backup.timer"
+            ],
+            "pruning": [
+              "cron /var/spool/cron/crontabs/root: <schedule>"
+            ],
+            "retention_evidence": true,
+            "backup_files": 8,
+            "newest": "<backup-path>/app-2026-09-27.dump",
+            "newest_age_hours": 5.7,
+            "newest_size": 1303630282
+          }
+        },
+        "highlights": [
+          "8 backup file(s) under <backup-path>",
+          "newest: app-2026-09-27.dump, 1303630282 bytes, 5.7h old",
+          "oldest kept: 173.7h old",
+          "schedules: cron /var/spool/cron/crontabs/root: <schedule>; timer dpkg-db-backup.timer"
+        ],
+        "notes": [
+          {
+            "text": "Local backups verified: nightly pg dump at <time> from root's crontab, about 1.3 GB each, eight kept (about seven days). Whether a copy exists off the host is not known to the owner; verification deferred on 2026-09-27.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/RES-01/index.json",
+        "evidence/RES-01/01-glob-etc_cron.d_.json",
+        "evidence/RES-01/02-glob-var_spool_cron_crontabs_.json",
+        "evidence/RES-01/03-derived-cron_schedules-etc-crontab.json",
+        "evidence/RES-01/04-derived-cron_schedules-etc-cron.d-job-a.json",
+        "evidence/RES-01/05-derived-cron_schedules-etc-cron.d-certbot.json",
+        "evidence/RES-01/06-derived-cron_schedules-etc-cron.d-e2scrub_all.json",
+        "evidence/RES-01/07-derived-cron_schedules-etc-cron.d-job-b.json",
+        "evidence/RES-01/08-derived-cron_schedules-etc-cron.d-sysstat.json",
+        "evidence/RES-01/09-derived-cron_schedules-var-spool-cron-crontabs-r.json",
+        "evidence/RES-01/10-systemctl-list-timers-all-no-legend-plain.txt",
+        "evidence/RES-01/11-glob-var_backups_app_.json",
+        "evidence/RES-01/12-glob-var_backups_app_-_.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.13"
+        ],
+        "essential_eight": [
+          "RB-ML1-01",
+          "RB-ML1-03"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Schedule the backup (cron or a systemd timer), add age-based pruning, and copy each backup off the host.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "Backups must be scheduled, fresh within the recovery point objective, and\npruned -- an unpruned backup job fills the disk and causes the outage it\nwas meant to survive. Only metadata of backup files is read.",
+      "limitations": "Off-host copies cannot be verified from inside the host; they are covered by attestation.",
+      "instructions": "A backup kept only on the host it protects does not survive that host.\nConfirm a copy of the newest backup exists on another system (list it\nthere, with its size and timestamp) and record an attestation for RES-01."
+    },
+    {
+      "id": "RES-02",
+      "title": "A restore drill has succeeded",
+      "domain": "resilience",
+      "severity": "critical",
+      "verdict": "MANUAL",
+      "basis": "pending",
+      "summary": "requires an operator procedure and an attestation",
+      "details": {
+        "notes": [
+          {
+            "text": "Restore drill deferred by the owner on 2026-09-27. The planned target (an Umami database) does not exist on this host, and the app databases are production and out of bounds for this run.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.13"
+        ],
+        "essential_eight": [
+          "RB-ML1-02",
+          "RB-ML1-04"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Run the drill; fix whatever it reveals (missing roles, wrong database, truncated dumps) and repeat.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "A backup that has never been restored is an assumption. The drill measures\nrecovery time and proves the backup contains the right data.",
+      "limitations": "",
+      "instructions": "Restore the newest backup into a new, throwaway target whose name cannot be\nconfused with production (e.g. *_restore_test). Time the restore, reconcile\nrow counts (or file counts) per major table against the source, confirm the\nrestored data is the expected data, then remove the throwaway target.\nRecord method, measurements and timing in an attestation for RES-02. The\nagent skill describes the full protocol."
+    },
+    {
+      "id": "NET-01",
+      "title": "Host firewall denies by default, allows minimally, covers IPv6",
+      "domain": "network",
+      "severity": "critical",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "default_deny_v4 = True, default_deny_v6 = True; no ports open to any source beyond the declared public ports",
+      "details": {
+        "assertion": {
+          "parts": [
+            {
+              "op": "kv_equals",
+              "verdict": "PASS",
+              "summary": "default_deny_v4 = True, default_deny_v6 = True",
+              "observed": {
+                "default_deny_v4": true,
+                "default_deny_v6": true
+              }
+            },
+            {
+              "op": "count_at_most",
+              "verdict": "PASS",
+              "summary": "no ports open to any source beyond the declared public ports",
+              "count": 0,
+              "items": []
+            }
+          ]
+        },
+        "collected": {
+          "fw": {
+            "frontend": "ufw",
+            "default_deny_v4": true,
+            "default_deny_v6": true,
+            "open_ports": [
+              22
+            ],
+            "unresolved_rules": [],
+            "notes": [],
+            "ipv6_enabled": true,
+            "extra_ports": []
+          }
+        },
+        "highlights": [
+          "front-end: ufw; default deny IPv4 True, IPv6 True",
+          "open to any source: 22"
+        ],
+        "notes": [
+          {
+            "text": "Ports 80 and 443 are allowed only from Cloudflare's published address ranges (origin locked to the CDN); SSH on 22 is open to any source with ufw rate limiting.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/NET-01/index.json",
+        "evidence/NET-01/01-ufw-status-verbose.txt",
+        "evidence/NET-01/02-etc_default_ufw",
+        "evidence/NET-01/03-proc_sys_net_ipv6_conf_all_disable_ipv6"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.20"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Allow the management port first, then set the default incoming policy to deny (e.g. `ufw allow 22/tcp && ufw default deny incoming && ufw enable`); set IPV6=yes in /etc/default/ufw; remove allow rules for undeclared ports.",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "Default-deny means a service started by mistake is unreachable until\nsomeone decides otherwise. A ruleset that filters IPv4 only leaves every\nIPv6-listening service exposed. The front-end is identified (ufw,\nfirewalld, nftables, iptables) and its resolved policy is read.",
+      "limitations": "Cloud-provider security groups and network ACLs are invisible from inside the host; if they are the real perimeter, review them separately."
+    },
+    {
+      "id": "NET-02",
+      "title": "Only intended services listen on non-loopback addresses",
+      "domain": "network",
+      "severity": "critical",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "7 non-loopback listener(s), all on declared ports",
+      "details": {
+        "assertion": {
+          "non_loopback": [
+            "tcp/22 on 0.0.0.0 (sshd)",
+            "tcp/22 on :: (sshd)",
+            "tcp/443 on 0.0.0.0 (nginx)",
+            "tcp/443 on :: (nginx)",
+            "tcp/80 on 0.0.0.0 (nginx)",
+            "tcp/80 on :: (nginx)",
+            "udp/68 on 192.0.2.10%enp1s0 (systemd-network)"
+          ],
+          "unexpected": [],
+          "exempt_dhcp_client": [
+            "udp/68 on 192.0.2.10%enp1s0 (systemd-network)"
+          ],
+          "declared_tcp": [
+            22,
+            80,
+            443
+          ],
+          "declared_udp": []
+        }
+      },
+      "evidence": [
+        "evidence/NET-02/index.json",
+        "evidence/NET-02/01-ss-tcp.txt",
+        "evidence/NET-02/02-ss-udp.txt"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.20",
+          "A.8.21"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Bind the service to 127.0.0.1 (or ::1), or publish the container port on loopback only (`127.0.0.1:HOST:CONTAINER`).",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "Databases, caches, admin panels and application servers reachable from the\ninternet are the most common entry point. Anything outside the declared\npublic port set must bind a loopback address. Container ports published by\nDocker appear here too, as docker-proxy listeners.",
+      "limitations": ""
+    },
+    {
+      "id": "NET-03",
+      "title": "Container ports do not bypass the host firewall",
+      "domain": "network",
+      "severity": "critical",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no container ports published on non-loopback addresses outside the declared public ports",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "docker": {
+            "containers": 0,
+            "published": [],
+            "violations": [],
+            "host_network": []
+          }
+        }
+      },
+      "evidence": [
+        "evidence/NET-03/index.json",
+        "evidence/NET-03/01-docker-ps-q-no-trunc.txt"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.20"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Publish the port on loopback (`127.0.0.1:3000:3000`) and put the reverse proxy in front of it, or publish no host port if only sibling containers need it.",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "Docker inserts its own forwarding rules ahead of the host firewall, so a\nport published on 0.0.0.0 is reachable from the internet even when ufw\nnever allowed it. The host firewall's own view (NET-01) will not show the\nhole; the published bindings will.",
+      "limitations": "Rules in the DOCKER-USER chain are not evaluated; external probing (NET-04) is what proves the result."
+    },
+    {
+      "id": "ACC-06",
+      "title": "Administrative access requires multiple factors",
+      "domain": "access",
+      "severity": "high",
+      "verdict": "FAIL",
+      "basis": "verified",
+      "summary": "mfa_enforced is False (expected True)",
+      "details": {
+        "assertion": {
+          "observed": {
+            "mfa_enforced": false
+          }
+        },
+        "collected": {
+          "mfa": {
+            "mfa_enforced": false,
+            "how": "single factor: public key only (AuthenticationMethods any)",
+            "authenticationmethods": "any",
+            "key_types": {
+              "ssh-ed25519": 4
+            }
+          }
+        }
+      },
+      "evidence": [
+        "evidence/ACC-06/index.json",
+        "evidence/ACC-06/01-sshd-T.txt",
+        "evidence/ACC-06/02-etc_passwd",
+        "evidence/ACC-06/03-glob-bin_.ssh_authorized_keys.json",
+        "evidence/ACC-06/04-glob-home_ci-user_.ssh_authorized_keys.json",
+        "evidence/ACC-06/05-derived-authorized_keys-home-ci-user-.ssh-authori.json",
+        "evidence/ACC-06/06-glob-root_.ssh_authorized_keys.json",
+        "evidence/ACC-06/07-derived-authorized_keys-root-.ssh-authorized_key.json",
+        "evidence/ACC-06/08-glob-var_lib_postgresql_.ssh_authorized_keys.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.5"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Enrol FIDO2 keys (`ssh-keygen -t ed25519-sk`) for administrators and remove other keys, or require a second method with AuthenticationMethods publickey,keyboard-interactive plus a TOTP PAM module.",
+        "disruptive": true
+      },
+      "risk_acceptance": {
+        "reason": "Single administrator using key-only SSH from one personal device; a second factor is not required at this time. Revisit if more administrators or devices are added.",
+        "accepted_by": "owner",
+        "review_by": "2026-12-31",
+        "expired": false,
+        "file": "risk-acceptance.toml"
+      },
+      "rationale": "A private key on a laptop is one factor: whoever holds the file (and its\npassphrase, which the server cannot verify) gets in. MFA for SSH means\nsshd requires two methods (AuthenticationMethods) or every authorized key\nis a FIDO hardware key (sk-* types) that proves physical presence. Most\nhosts fail this control; that is an honest result, not a defect.",
+      "limitations": ""
+    },
+    {
+      "id": "ACC-02",
+      "title": "authorized_keys files are clean and attributable",
+      "domain": "access",
+      "severity": "high",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no authorized_keys problems",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "keys": {
+            "files": [
+              {
+                "path": "/home/ci-user/.ssh/authorized_keys",
+                "user": "ci-user",
+                "mode": "0600",
+                "keys": [
+                  {
+                    "type": "ssh-ed25519",
+                    "comment": "ci-key-1",
+                    "bits": null,
+                    "options": []
+                  },
+                  {
+                    "type": "ssh-ed25519",
+                    "comment": "ci-key-2",
+                    "bits": null,
+                    "options": []
+                  }
+                ]
+              },
+              {
+                "path": "/root/.ssh/authorized_keys",
+                "user": "root",
+                "mode": "0600",
+                "keys": [
+                  {
+                    "type": "ssh-ed25519",
+                    "comment": "admin@laptop",
+                    "bits": null,
+                    "options": []
+                  },
+                  {
+                    "type": "ssh-ed25519",
+                    "comment": "admin@laptop",
+                    "bits": null,
+                    "options": []
+                  }
+                ]
+              }
+            ],
+            "key_count": 4,
+            "violations": [],
+            "review": []
+          }
+        }
+      },
+      "evidence": [
+        "evidence/ACC-02/index.json",
+        "evidence/ACC-02/01-etc_passwd",
+        "evidence/ACC-02/02-glob-bin_.ssh_authorized_keys.json",
+        "evidence/ACC-02/03-glob-home_ci-user_.ssh_authorized_keys.json",
+        "evidence/ACC-02/04-derived-authorized_keys-home-ci-user-.ssh-authori.json",
+        "evidence/ACC-02/05-glob-root_.ssh_authorized_keys.json",
+        "evidence/ACC-02/06-derived-authorized_keys-root-.ssh-authorized_key.json",
+        "evidence/ACC-02/07-glob-var_lib_postgresql_.ssh_authorized_keys.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.5.17",
+          "A.8.5"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Remove keys that cannot be attributed; replace DSA and RSA < 3072 keys with ed25519; chmod 600 each authorized_keys file; delete authorized_keys2 files after moving any needed key.",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "Every authorized key is a standing credential. Keys nobody can attribute,\nweak key types, deprecated authorized_keys2 files and loose permissions\nare how access outlives the people and systems it was granted to. Only key\ntype, comment and option names are recorded -- never key material.",
+      "limitations": "Whether each key's owner is still entitled to access is a human judgement; the key inventory is listed in the details for review."
+    },
+    {
+      "id": "ACC-03",
+      "title": "Application accounts hold no privileges",
+      "domain": "access",
+      "severity": "high",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no privileged application or undeclared accounts",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "accounts": {
+            "privileged_members": {
+              "adm": [
+                "syslog"
+              ],
+              "docker": [],
+              "lxd": [],
+              "root": [],
+              "sudo": []
+            },
+            "app_accounts": [
+              "app",
+              "earlyoom",
+              "messagebus",
+              "polkitd",
+              "postgres",
+              "syslog",
+              "systemd-network",
+              "systemd-resolve",
+              "systemd-timesync",
+              "verify",
+              "www-data",
+              "comments-svc"
+            ],
+            "service_unit_users": {
+              "app": [
+                "app-bot.service",
+                "app-poller.service",
+                "app-web.service"
+              ],
+              "earlyoom": [
+                "earlyoom.service"
+              ],
+              "polkitd": [
+                "polkit.service"
+              ],
+              "systemd-network": [
+                "systemd-networkd.service"
+              ],
+              "systemd-resolve": [
+                "systemd-resolved.service"
+              ],
+              "systemd-timesync": [
+                "systemd-timesyncd.service"
+              ],
+              "verify": [
+                "app-verify-web.service",
+                "app-verify.service"
+              ],
+              "comments-svc": [
+                "comments-svc.service"
+              ]
+            },
+            "violations": []
+          }
+        },
+        "notes": [
+          {
+            "text": "Fixed on 2026-09-27 08:25 UTC: the unused provider default account was removed from all supplementary groups (sudo, lxd, adm and others), its shell set to nologin, the account expired and its password kept locked. It had no SSH keys. Change and undo command recorded in the host's remediation log.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/ACC-03/index.json",
+        "evidence/ACC-03/01-etc_passwd",
+        "evidence/ACC-03/02-etc_group",
+        "evidence/ACC-03/03-ps-eo-user-32-comm-no-headers.txt",
+        "evidence/ACC-03/04-systemctl-list-units-type-service-state-running-.txt",
+        "evidence/ACC-03/05-systemctl-show-p-Id-User-DynamicUser-auditd.serv.txt",
+        "evidence/ACC-03/06-systemctl-show-p-Id-User-DynamicUser-systemd-jou.txt"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.2"
+        ],
+        "essential_eight": [
+          "RAP-ML1-02"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Remove application accounts from privileged groups (`gpasswd -d USER GROUP`), declare legitimate administrators in the profile's admin_users, and restart affected services in a maintenance window.",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "An application compromise should not become a host compromise. Membership\nin sudo, wheel, admin, adm, lxd or docker is privilege: anyone who can\nstart containers can mount the host filesystem, so the docker group is\nequivalent to root. Accounts that own processes or run services must not\nhold any of these, and privileged human accounts must be declared.",
+      "limitations": ""
+    },
+    {
+      "id": "ACC-05",
+      "title": "sudoers grants no passwordless full root to non-administrators",
+      "domain": "access",
+      "severity": "high",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no NOPASSWD: ALL grants to non-administrators",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "sudo": {
+            "nopasswd_all": [],
+            "violations": [],
+            "files_read": [
+              "/etc/sudoers",
+              "/etc/sudoers.d/README",
+              "/etc/sudoers.d/comments-svc"
+            ],
+            "ignored": []
+          }
+        }
+      },
+      "evidence": [
+        "evidence/ACC-05/index.json",
+        "evidence/ACC-05/01-etc_sudoers",
+        "evidence/ACC-05/02-glob-etc_sudoers.d_.json",
+        "evidence/ACC-05/03-etc_sudoers.d_README",
+        "evidence/ACC-05/04-etc_sudoers.d_comments-svc",
+        "evidence/ACC-05/05-etc_group"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.2"
+        ],
+        "essential_eight": [
+          "RAP-ML1-02"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Remove NOPASSWD from full-root grants (edit with `visudo -f`), or narrow the grant to specific commands; keep a root session open while testing.",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "`NOPASSWD: ALL` turns any code execution as that account into root without\na second secret. Cloud images often grant it to the default user. Only\nfiles sudo actually loads are considered: files in sudoers.d whose names\ncontain a dot or end in '~' are ignored by sudo and reported separately.",
+      "limitations": ""
+    },
+    {
+      "id": "PAT-01",
+      "title": "Automatic security updates are enabled and running",
+      "domain": "patching",
+      "severity": "high",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "installed = True, enabled = True, timer_enabled = True; hours since unattended-upgrades last ran = 1.8 (limit 48)",
+      "details": {
+        "assertion": {
+          "parts": [
+            {
+              "op": "kv_equals",
+              "verdict": "PASS",
+              "summary": "installed = True, enabled = True, timer_enabled = True",
+              "observed": {
+                "installed": true,
+                "enabled": true,
+                "timer_enabled": true
+              }
+            },
+            {
+              "op": "value_at_most",
+              "verdict": "PASS",
+              "summary": "hours since unattended-upgrades last ran = 1.8 (limit 48)",
+              "value": 1.8
+            }
+          ]
+        },
+        "collected": {
+          "auto": {
+            "installed": true,
+            "enabled": true,
+            "timer_enabled": true,
+            "timers": {
+              "apt-daily.timer": "enabled",
+              "apt-daily-upgrade.timer": "enabled"
+            },
+            "periodic": {
+              "APT::Periodic::Update-Package-Lists": "1",
+              "APT::Periodic::Download-Upgradeable-Packages": "0",
+              "APT::Periodic::AutocleanInterval": "0",
+              "APT::Periodic::Unattended-Upgrade": "1"
+            },
+            "last_activity_age_hours": 1.8,
+            "last_upgrade_age_days": 0.1,
+            "runs_logged": 54,
+            "upgrades_logged": 10
+          }
+        },
+        "highlights": [
+          "last unattended-upgrades activity: 1.8h ago",
+          "10 upgrade run(s) and 54 run(s) in the current log"
+        ]
+      },
+      "evidence": [
+        "evidence/PAT-01/index.json",
+        "evidence/PAT-01/01-dpkg-query-W-f-Package-db-Status-Abbrev-Version-.txt",
+        "evidence/PAT-01/02-glob-etc_apt_apt.conf.d_.json",
+        "evidence/PAT-01/03-etc_apt_apt.conf.d_01-vendor-ubuntu",
+        "evidence/PAT-01/04-etc_apt_apt.conf.d_01autoremove",
+        "evidence/PAT-01/05-etc_apt_apt.conf.d_02autoremove-postgresql",
+        "evidence/PAT-01/06-etc_apt_apt.conf.d_10periodic",
+        "evidence/PAT-01/07-etc_apt_apt.conf.d_15update-stamp",
+        "evidence/PAT-01/08-etc_apt_apt.conf.d_20apt-esm-hook.conf",
+        "evidence/PAT-01/09-etc_apt_apt.conf.d_20archive",
+        "evidence/PAT-01/10-etc_apt_apt.conf.d_20auto-upgrades",
+        "evidence/PAT-01/11-etc_apt_apt.conf.d_20packagekit",
+        "evidence/PAT-01/12-etc_apt_apt.conf.d_20snapd.conf",
+        "evidence/PAT-01/13-etc_apt_apt.conf.d_50appstream",
+        "evidence/PAT-01/14-etc_apt_apt.conf.d_50command-not-found",
+        "evidence/PAT-01/15-etc_apt_apt.conf.d_50unattended-upgrades",
+        "evidence/PAT-01/16-etc_apt_apt.conf.d_70debconf",
+        "evidence/PAT-01/17-etc_apt_apt.conf.d_99Recommended",
+        "evidence/PAT-01/18-etc_apt_apt.conf.d_99needrestart",
+        "evidence/PAT-01/19-etc_apt_apt.conf.d_99update-notifier",
+        "evidence/PAT-01/20-systemctl-is-enabled-apt-daily.timer-apt-daily-u.txt",
+        "evidence/PAT-01/21-stat-var_lib_apt_periodic_unattended-upgrades-st.json",
+        "evidence/PAT-01/22-derived-unattended_upgrades_log-var-log-unattend.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.8"
+        ],
+        "essential_eight": [
+          "PO-ML1-05",
+          "PO-ML1-06"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "`apt install unattended-upgrades` and enable it (`dpkg-reconfigure -plow unattended-upgrades`); make sure apt-daily-upgrade.timer is enabled.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "Most compromises use known, already-patched vulnerabilities. Enabled is not\nenough: the timer must be active and the tool must actually have run\nrecently. This tool does not run unattended-upgrade itself (a dry run writes\nlogs and takes the apt lock); it reads the configuration, the timers, the\nperiodic stamp and the log.",
+      "limitations": ""
+    },
+    {
+      "id": "PAT-02",
+      "title": "No pending security updates and no pending reboot",
+      "domain": "patching",
+      "severity": "high",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no pending security updates; reboot_required = False",
+      "details": {
+        "assertion": {
+          "parts": [
+            {
+              "op": "count_at_most",
+              "verdict": "PASS",
+              "summary": "no pending security updates",
+              "count": 0,
+              "items": []
+            },
+            {
+              "op": "kv_equals",
+              "verdict": "PASS",
+              "summary": "reboot_required = False",
+              "observed": {
+                "reboot_required": false
+              }
+            }
+          ]
+        },
+        "collected": {
+          "backlog": {
+            "lists_age_hours": 0.0,
+            "lists_source": "/var/lib/apt/periodic/update-success-stamp",
+            "security_upgrades": [],
+            "upgradable_total": 45,
+            "reboot_required": false,
+            "reboot_required_age_hours": null,
+            "reboot_packages": []
+          }
+        },
+        "highlights": [
+          "package lists 0.0h old; 45 upgradable package(s)"
+        ],
+        "notes": [
+          {
+            "text": "Fixed on 2026-09-27: the owner rebooted into kernel 6.8.0-142 (previously 6.8.0-139 was running while the new kernel had been installed for 49 h). The reboot also activated libaudit1 upgraded as a dependency of auditd.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/PAT-02/index.json",
+        "evidence/PAT-02/01-stat-var_lib_apt_periodic_update-success-stamp.json",
+        "evidence/PAT-02/02-apt-list-upgradable.txt",
+        "evidence/PAT-02/03-stat-var_run_reboot-required.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.8"
+        ],
+        "essential_eight": [
+          "PO-ML1-05",
+          "PO-ML1-06"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Install pending security updates (`apt upgrade`) and schedule a reboot; check `needrestart` for services using replaced libraries.",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "A kernel or library update installed but not rebooted into is not applied.\nThe backlog is judged from the package lists already on the host; the tool\ndoes not run `apt-get update` (it rewrites /var/lib/apt/lists), so when the\nlists are older than the profile allows, the backlog is reported UNKNOWN\nrather than guessed.",
+      "limitations": ""
+    },
+    {
+      "id": "ACC-04",
+      "title": "No account has an empty password",
+      "domain": "access",
+      "severity": "medium",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no accounts with an empty password",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "shadow": {
+            "entries": 40,
+            "empty_password_users": []
+          }
+        }
+      },
+      "evidence": [
+        "evidence/ACC-04/index.json",
+        "evidence/ACC-04/01-derived-shadow_empty_passwords-etc-shadow.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.5.17"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Lock each listed account (`passwd -l USER`) or set a password.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "An empty password field allows login without any secret wherever password\nauthentication is accepted (console, su, some PAM stacks). Only the\nusernames are recorded; password hashes are never stored.",
+      "limitations": ""
+    },
+    {
+      "id": "DET-01",
+      "title": "Brute-force protection is active and working",
+      "domain": "detection",
+      "severity": "medium",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "protection_active = True, ssh_jail_present = True; SSH bans observed = 382 (need >= 1)",
+      "details": {
+        "assertion": {
+          "parts": [
+            {
+              "op": "kv_equals",
+              "verdict": "PASS",
+              "summary": "protection_active = True, ssh_jail_present = True",
+              "observed": {
+                "protection_active": true,
+                "ssh_jail_present": true
+              }
+            },
+            {
+              "op": "value_at_least",
+              "verdict": "PASS",
+              "summary": "SSH bans observed = 382 (need >= 1)",
+              "value": 382
+            }
+          ]
+        },
+        "collected": {
+          "bf": {
+            "services": {
+              "fail2ban": "active",
+              "sshguard": "inactive",
+              "crowdsec": "inactive"
+            },
+            "protection_active": true,
+            "jails": [
+              "sshd"
+            ],
+            "ssh_jail_present": true,
+            "jail": "sshd",
+            "total_banned_since_start": 49,
+            "bans_7d": 382,
+            "ban_log_source": "/var/log/fail2ban.log",
+            "params": {
+              "bantime": "86400",
+              "findtime": "3600",
+              "maxretry": "3"
+            },
+            "bans_observed": 382
+          }
+        },
+        "highlights": [
+          "fail2ban jail 'sshd': 382 ban(s) in the last 7 days (source: /var/log/fail2ban.log), 49 since the service started",
+          "bantime 86400s, findtime 3600s, maxretry 3"
+        ]
+      },
+      "evidence": [
+        "evidence/DET-01/index.json",
+        "evidence/DET-01/01-systemctl-is-active-fail2ban-sshguard-crowdsec.txt",
+        "evidence/DET-01/02-fail2ban-client-status.txt",
+        "evidence/DET-01/03-fail2ban-client-status-sshd.txt",
+        "evidence/DET-01/04-fail2ban-client-get-sshd-bantime.txt",
+        "evidence/DET-01/05-fail2ban-client-get-sshd-findtime.txt",
+        "evidence/DET-01/06-fail2ban-client-get-sshd-maxretry.txt",
+        "evidence/DET-01/07-derived-fail2ban_log_bans-var-log-fail2ban.log.json",
+        "evidence/DET-01/08-derived-fail2ban_log_bans-var-log-fail2ban.log.1.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.16"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Enable fail2ban with an sshd jail; on journald-only systems set `backend = systemd` in the jail; check `fail2ban-client status sshd` shows failures being counted.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "An internet-facing SSH port always attracts attempts, so a protection tool\nthat has never banned anything is almost certainly reading the wrong log\nsource (for example a jail watching /var/log/auth.log on a journald-only\nsystem). Zero bans is treated as FAIL, not as a quiet internet.",
+      "limitations": ""
+    },
+    {
+      "id": "DET-02",
+      "title": "Authentication logs persist across reboots",
+      "domain": "detection",
+      "severity": "medium",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "auth_logs_persistent = True",
+      "details": {
+        "assertion": {
+          "observed": {
+            "auth_logs_persistent": true
+          }
+        },
+        "collected": {
+          "logs": {
+            "journald_storage": "auto",
+            "journal_dir_exists": true,
+            "journal_persistent": true,
+            "syslog_auth_log": {
+              "path": "/var/log/auth.log",
+              "age_hours": 0.1
+            },
+            "auth_logs_persistent": true,
+            "dropins": [
+              "/etc/systemd/journald.conf.d/99-maxuse.conf",
+              "/usr/lib/systemd/journald.conf.d/syslog.conf"
+            ]
+          }
+        }
+      },
+      "evidence": [
+        "evidence/DET-02/index.json",
+        "evidence/DET-02/01-etc_systemd_journald.conf",
+        "evidence/DET-02/02-glob-usr_lib_systemd_journald.conf.d_-.conf.json",
+        "evidence/DET-02/03-glob-run_systemd_journald.conf.d_-.conf.json",
+        "evidence/DET-02/04-glob-etc_systemd_journald.conf.d_-.conf.json",
+        "evidence/DET-02/05-etc_systemd_journald.conf.d_99-maxuse.conf",
+        "evidence/DET-02/06-usr_lib_systemd_journald.conf.d_syslog.conf",
+        "evidence/DET-02/07-stat-var_log_journal.json",
+        "evidence/DET-02/08-stat-var_log_auth.log.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.15"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Set Storage=persistent in a journald.conf.d drop-in (or create /var/log/journal) and restart systemd-journald.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "Volatile logs vanish on reboot, taking incident evidence with them. The\neffective journald storage mode is resolved from journald.conf and its\ndrop-ins (Storage=auto persists only if /var/log/journal exists); a\nsyslog-written auth log also counts.",
+      "limitations": ""
+    },
+    {
+      "id": "NET-05",
+      "title": "TLS certificates are valid and not close to expiry",
+      "domain": "network",
+      "severity": "medium",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no certificate problems",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "tls": {
+            "certs": [
+              {
+                "domain": "site-a.example",
+                "verified": true,
+                "not_after": "2026-12-20T15:43:06+00:00",
+                "days_left": 84.3,
+                "issuer": "YE1",
+                "error": null
+              },
+              {
+                "domain": "www.site-a.example",
+                "verified": true,
+                "not_after": "2026-12-20T15:43:06+00:00",
+                "days_left": 84.3,
+                "issuer": "YE1",
+                "error": null
+              },
+              {
+                "domain": "site-b.example",
+                "verified": true,
+                "not_after": "2026-12-01T19:45:32+00:00",
+                "days_left": 65.5,
+                "issuer": "YE1",
+                "error": null
+              },
+              {
+                "domain": "www.site-b.example",
+                "verified": true,
+                "not_after": "2026-12-01T19:45:32+00:00",
+                "days_left": 65.5,
+                "issuer": "YE1",
+                "error": null
+              },
+              {
+                "domain": "verify.site-b.example",
+                "verified": true,
+                "not_after": "2026-12-19T11:51:55+00:00",
+                "days_left": 83.1,
+                "issuer": "YE1",
+                "error": null
+              }
+            ],
+            "violations": []
+          }
+        }
+      },
+      "evidence": [
+        "evidence/NET-05/index.json",
+        "evidence/NET-05/01-tls-site-a.example.json",
+        "evidence/NET-05/02-tls-www.site-a.example.json",
+        "evidence/NET-05/03-tls-site-b.example.json",
+        "evidence/NET-05/04-tls-www.site-b.example.json",
+        "evidence/NET-05/05-tls-verify.site-b.example.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.24"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Renew the certificate and confirm automated renewal is scheduled (e.g. `systemctl list-timers` for certbot, or the proxy's ACME client).",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "An expired or invalid certificate is an outage for users and trains them to\nclick through warnings. Each declared domain is checked on this host's own\nport 443 with SNI, against the system CA store.",
+      "limitations": ""
+    },
+    {
+      "id": "PAT-03",
+      "title": "Running container images are not stale",
+      "domain": "patching",
+      "severity": "medium",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no containers running images older than max_image_age_days",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "images": {
+            "containers": 0,
+            "images": [],
+            "violations": []
+          }
+        }
+      },
+      "evidence": [
+        "evidence/PAT-03/index.json",
+        "evidence/PAT-03/01-docker-ps-q-no-trunc.txt"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.8"
+        ],
+        "essential_eight": [
+          "PA-ML1-05",
+          "PA-ML1-06"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Rebuild or pull the image, then recreate the container in a maintenance window (`docker compose pull && docker compose up -d`).",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "Host patching does not reach inside containers. An image built months ago\ncarries the vulnerabilities of its base layer from that date.",
+      "limitations": "Image age is a proxy: a recent build of an old base image passes. CVE matching is out of scope."
+    },
+    {
+      "id": "RES-03",
+      "title": "Disk space and inode headroom",
+      "domain": "resilience",
+      "severity": "medium",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no filesystems below the headroom threshold",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "disk": {
+            "mounts": [
+              {
+                "path": "/",
+                "free_percent": 35.7,
+                "inodes_free_percent": 97.4
+              }
+            ],
+            "violations": []
+          }
+        },
+        "highlights": [
+          "/: 35.7% space free, 97.4% inodes free"
+        ]
+      },
+      "evidence": [
+        "evidence/RES-03/index.json",
+        "evidence/RES-03/01-statvfs.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.6"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Free space (old logs, images, backups) and add pruning; grow the volume if growth is organic.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "A full disk stops databases, logging and backups at once. Inode exhaustion\ndoes the same with space still free.",
+      "limitations": ""
+    },
+    {
+      "id": "RES-04",
+      "title": "Backups are not readable or modifiable by other accounts",
+      "domain": "resilience",
+      "severity": "medium",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "no backup files or directories open to other accounts",
+      "details": {
+        "assertion": {
+          "count": 0,
+          "items": []
+        },
+        "collected": {
+          "perms": {
+            "files_checked": 8,
+            "violations": [],
+            "loose_but_unreachable": []
+          }
+        }
+      },
+      "evidence": [
+        "evidence/RES-04/index.json",
+        "evidence/RES-04/01-stat-var.json",
+        "evidence/RES-04/02-stat-var_backups.json",
+        "evidence/RES-04/03-stat-var_backups_app.json",
+        "evidence/RES-04/04-glob-var_backups_app_.json",
+        "evidence/RES-04/05-glob-var_backups_app_-_.json"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.13"
+        ],
+        "essential_eight": [
+          "RB-ML1-05",
+          "RB-ML1-06"
+        ],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "chmod o-rwx and g-w on backup files (e.g. `chmod 0640`), and remove group/other write from backup directories; write backups with a restrictive umask (077).",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "A backup readable by every account leaks the whole data set to any\ncompromised service; a backup directory that other accounts can write to\nlets ransomware running as one of them delete or overwrite it. Files must\ngrant nothing to other accounts and must not be group-writable; directories\nmust not let other accounts add or remove files. Only metadata is read.",
+      "limitations": "Covers backups under the declared backup_paths on this host, taking parent directories into account; ACLs and access to off-host copies are not checked."
+    },
+    {
+      "id": "BAS-01",
+      "title": "A recent Lynis baseline score is recorded",
+      "domain": "baseline",
+      "severity": "low",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "age of the Lynis report (days) = 0 (limit 90)",
+      "details": {
+        "assertion": {
+          "value": 0.0
+        },
+        "collected": {
+          "lynis": {
+            "suggestions": [
+              "BOOT-5122",
+              "BOOT-5264",
+              "KRNL-5820",
+              "AUTH-9229",
+              "AUTH-9230",
+              "AUTH-9282",
+              "AUTH-9284",
+              "AUTH-9286",
+              "AUTH-9286",
+              "AUTH-9328",
+              "FILE-6310",
+              "FILE-6310",
+              "FILE-6310",
+              "USB-1000",
+              "PKGS-7346",
+              "PKGS-7370",
+              "PKGS-7394",
+              "NETW-2704",
+              "NETW-2704",
+              "NETW-3200",
+              "NETW-3200",
+              "NETW-3200",
+              "NETW-3200",
+              "FIRE-4513",
+              "HTTP-6710",
+              "SSH-7408",
+              "SSH-7408",
+              "SSH-7408",
+              "SSH-7408",
+              "SSH-7408",
+              "SSH-7408",
+              "SSH-7408",
+              "SSH-7408",
+              "SSH-7408",
+              "LOGG-2154",
+              "BANN-7126",
+              "BANN-7130",
+              "ACCT-9622",
+              "ACCT-9626",
+              "ACCT-9630",
+              "FINT-4350",
+              "TOOL-5002",
+              "FILE-7524",
+              "HOME-9304",
+              "KRNL-6000",
+              "HRDN-7222",
+              "HRDN-7230"
+            ],
+            "hardening_index": 69,
+            "report_age_days": 0.0,
+            "report_time": "2026-09-27 08:44:03",
+            "lynis_version": "3.1.8",
+            "warnings": [
+              "NETW-2704",
+              "NETW-2704",
+              "DBS-1828",
+              "DBS-1828",
+              "DBS-1828"
+            ],
+            "suggestion_count": 47
+          }
+        },
+        "highlights": [
+          "Lynis 3.1.8 hardening index 69, report from 2026-09-27 08:44:03 UTC",
+          "5 warning(s)",
+          "warning NETW-2704: Nameserver 2001:db8::1 does not respond",
+          "warning NETW-2704: Nameserver 2001:db8::2 does not respond",
+          "warning DBS-1828: PostgreSQL configuration file /etc/postgresql/16/main/postgresql.conf is world readable and might leak sensitive details",
+          "warning DBS-1828: PostgreSQL configuration file /etc/postgresql/16/main/start.conf is world readable and might leak sensitive details",
+          "warning DBS-1828: PostgreSQL configuration file /etc/postgresql/16/main/pg_ctl.conf is world readable and might leak sensitive details",
+          "47 suggestion(s) across 32 tests: BOOT-5122, BOOT-5264, KRNL-5820, AUTH-9229, AUTH-9230, AUTH-9282, AUTH-9284, AUTH-9286 ×2, AUTH-9328, FILE-6310 ×3, USB-1000, PKGS-7346, PKGS-7370, PKGS-7394, NETW-2704 ×2, NETW-3200 ×4, FIRE-4513, HTTP-6710, SSH-7408 ×9, LOGG-2154, BANN-7126, BANN-7130, ACCT-9622, ACCT-9626, ACCT-9630, FINT-4350, TOOL-5002, FILE-7524, HOME-9304, KRNL-6000, HRDN-7222, HRDN-7230"
+        ],
+        "notes": [
+          {
+            "text": "Lynis 3.1.8 (upstream, run from a temporary checkout) scored 67 before remediation and 69 after; the reboot-needed warning KRNL-5830 is gone. Remaining warnings: NETW-2704 (IPv6 resolvers unreachable; expected, the host has no global IPv6 address) and DBS-1828 (default world-readable PostgreSQL configuration files without credentials; low). Lynis test PKGS-7392 runs apt-get update, so package-list freshness right after a Lynis run comes from Lynis.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/BAS-01/index.json",
+        "evidence/BAS-01/01-derived-lynis_report-var-log-lynis-report.dat.json"
+      ],
+      "refs": {
+        "essential_eight": [],
+        "cis": [],
+        "iso27001_2022": []
+      },
+      "remediation": {
+        "summary": "Run `lynis audit system` (upstream package preferred) and re-run this audit to record the score.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "Lynis gives a broad second opinion. This tool reads the existing report\n(score, date, warning IDs); it does not run Lynis, which writes to\n/var/log. The number that matters is the same score measured again after\nremediation, not the absolute value.",
+      "limitations": ""
+    },
+    {
+      "id": "BAS-02",
+      "title": "Kernel network and memory hardening parameters",
+      "domain": "baseline",
+      "severity": "low",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "kernel.kptr_restrict = 1, kernel.dmesg_restrict = 1, kernel.randomize_va_space = 2, net.ipv4.tcp_syncookies = 1, net.ipv4.conf.all.rp_filter = 2, net.ipv4.conf.all.accept_redirects = 0, net.ipv4.conf.all.send_redirects = 0, net.ipv4.conf.all.accept_source_route = 0, net.ipv6.conf.all.accept_redirects = 0",
+      "details": {
+        "assertion": {
+          "observed": {
+            "kernel.kptr_restrict": "1",
+            "kernel.dmesg_restrict": "1",
+            "kernel.randomize_va_space": "2",
+            "net.ipv4.tcp_syncookies": "1",
+            "net.ipv4.conf.all.rp_filter": "2",
+            "net.ipv4.conf.all.accept_redirects": "0",
+            "net.ipv4.conf.all.send_redirects": "0",
+            "net.ipv4.conf.all.accept_source_route": "0",
+            "net.ipv6.conf.all.accept_redirects": "0"
+          }
+        },
+        "collected": {
+          "sysctl": {
+            "kernel.kptr_restrict": "1",
+            "kernel.dmesg_restrict": "1",
+            "kernel.randomize_va_space": "2",
+            "net.ipv4.tcp_syncookies": "1",
+            "net.ipv4.conf.all.rp_filter": "2",
+            "net.ipv4.conf.all.accept_redirects": "0",
+            "net.ipv4.conf.all.send_redirects": "0",
+            "net.ipv4.conf.all.accept_source_route": "0",
+            "net.ipv6.conf.all.accept_redirects": "0"
+          }
+        },
+        "notes": [
+          {
+            "text": "Fixed on 2026-09-27 08:26 UTC: net.ipv4.conf.all/default.send_redirects set to 0 in a sysctl.d drop-in and applied; it persisted across the reboot.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/BAS-02/index.json",
+        "evidence/BAS-02/01-proc_sys_kernel_kptr_restrict",
+        "evidence/BAS-02/02-proc_sys_kernel_dmesg_restrict",
+        "evidence/BAS-02/03-proc_sys_kernel_randomize_va_space",
+        "evidence/BAS-02/04-proc_sys_net_ipv4_tcp_syncookies",
+        "evidence/BAS-02/05-proc_sys_net_ipv4_conf_all_rp_filter",
+        "evidence/BAS-02/06-proc_sys_net_ipv4_conf_all_accept_redirects",
+        "evidence/BAS-02/07-proc_sys_net_ipv4_conf_all_send_redirects",
+        "evidence/BAS-02/08-proc_sys_net_ipv4_conf_all_accept_source_route",
+        "evidence/BAS-02/09-proc_sys_net_ipv6_conf_all_accept_redirects"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.9"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Set the values in /etc/sysctl.d/60-hardening.conf and load with `sysctl --system`. A Docker host needs net.ipv4.ip_forward=1, which is not checked here.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "These parameters limit kernel address leaks, enable full ASLR, resist SYN\nfloods and refuse routing tricks (redirects, source routing, spoofed\nsources). Values are read from /proc/sys; sysctl is never invoked.",
+      "limitations": ""
+    },
+    {
+      "id": "BAS-03",
+      "title": "System time is synchronised",
+      "domain": "baseline",
+      "severity": "low",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "ntp_synchronized = True",
+      "details": {
+        "assertion": {
+          "observed": {
+            "ntp_synchronized": true
+          }
+        },
+        "collected": {
+          "time": {
+            "ntp_synchronized": true,
+            "ntp_enabled": true,
+            "services_active": [
+              "systemd-timesyncd"
+            ],
+            "timezone": "Etc/UTC"
+          }
+        }
+      },
+      "evidence": [
+        "evidence/BAS-03/index.json",
+        "evidence/BAS-03/01-timedatectl-show.txt",
+        "evidence/BAS-03/02-systemctl-is-active-systemd-timesyncd-chrony-chr.txt"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.17"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Enable systemd-timesyncd or chrony (`timedatectl set-ntp true`).",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "Log correlation, certificate validation and TOTP all depend on correct\ntime. Incident timelines built from skewed clocks are wrong.",
+      "limitations": ""
+    },
+    {
+      "id": "BAS-04",
+      "title": "Mandatory access control is enforcing",
+      "domain": "baseline",
+      "severity": "low",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "enforcing = True",
+      "details": {
+        "assertion": {
+          "observed": {
+            "enforcing": true
+          }
+        },
+        "collected": {
+          "mac": {
+            "mac": "apparmor",
+            "enforcing": true,
+            "enforce_profiles": 28,
+            "complain_profiles": 4
+          }
+        }
+      },
+      "evidence": [
+        "evidence/BAS-04/index.json",
+        "evidence/BAS-04/01-sys_module_apparmor_parameters_enabled",
+        "evidence/BAS-04/02-sys_kernel_security_apparmor_profiles"
+      ],
+      "refs": {
+        "essential_eight": [],
+        "cis": [],
+        "iso27001_2022": []
+      },
+      "remediation": {
+        "summary": "Keep AppArmor enabled (Ubuntu default) and put service profiles in enforce mode; on RHEL keep SELinux enforcing.",
+        "disruptive": true
+      },
+      "risk_acceptance": null,
+      "rationale": "AppArmor or SELinux confines compromised services to what their profile\nallows. It is a weak counterpart of application control: it restricts\nwhat confined programs do, not which programs may run.",
+      "limitations": ""
+    },
+    {
+      "id": "DET-03",
+      "title": "Audit or file-integrity tooling is present",
+      "domain": "detection",
+      "severity": "low",
+      "verdict": "PASS",
+      "basis": "verified",
+      "summary": "auditd_active = True",
+      "details": {
+        "assertion": {
+          "parts": [
+            {
+              "op": "kv_equals",
+              "verdict": "PASS",
+              "summary": "auditd_active = True",
+              "observed": {
+                "auditd_active": true
+              }
+            },
+            {
+              "op": "kv_equals",
+              "verdict": "FAIL",
+              "summary": "aide_installed is False (expected True)",
+              "observed": {
+                "aide_installed": false
+              }
+            }
+          ]
+        },
+        "collected": {
+          "integrity": {
+            "auditd_active": true,
+            "auditd_installed": true,
+            "aide_installed": false,
+            "debsums_installed": false
+          }
+        },
+        "notes": [
+          {
+            "text": "Fixed on 2026-09-27 08:26 UTC: auditd installed (3.1.2) and enabled with its default rules; needrestart was suspended during installation so no production service was restarted. AIDE was not installed.",
+            "author": "operator with AI agent",
+            "file": "operator-notes.toml"
+          }
+        ]
+      },
+      "evidence": [
+        "evidence/DET-03/index.json",
+        "evidence/DET-03/01-systemctl-is-active-auditd.txt",
+        "evidence/DET-03/02-dpkg-query-W-f-Package-db-Status-Abbrev-Version-.txt"
+      ],
+      "refs": {
+        "iso27001_2022": [
+          "A.8.16"
+        ],
+        "essential_eight": [],
+        "cis": []
+      },
+      "remediation": {
+        "summary": "Install and enable auditd (`apt install auditd`), or install and initialise AIDE.",
+        "disruptive": false
+      },
+      "risk_acceptance": null,
+      "rationale": "After an incident, the first questions are what ran and what changed.\nauditd records security-relevant events; AIDE detects file changes. debsums\npresence is reported but does not pass the control on its own.",
+      "limitations": ""
+    }
+  ],
+  "attestation_files": [
+    {
+      "file": "probe-attestation.public.toml",
+      "sha256": "c6f0cb7fb60db4c26c268253973fe0da4f0b95fd78a65c028c9c0f07a656c1b0",
+      "attestations": 2,
+      "risk_acceptances": 0,
+      "notes": 0
+    },
+    {
+      "file": "risk-acceptance.toml",
+      "sha256": "4d382fcabe9901acaefe9a6aefe1ebccbf719559368945925f5af9d9ff1d4885",
+      "attestations": 0,
+      "risk_acceptances": 2,
+      "notes": 0
+    },
+    {
+      "file": "operator-notes.toml",
+      "sha256": "e553460cfba177d217c271546c8a10d76f6dba85247fc15efdfe0503fbae62c6",
+      "attestations": 0,
+      "risk_acceptances": 0,
+      "notes": 9
+    }
+  ]
+}

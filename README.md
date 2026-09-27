@@ -21,8 +21,8 @@ python3 server-hardening-audit.pyz list            # every command and file it w
 sudo python3 server-hardening-audit.pyz audit      # writes ./audit-runs/<timestamp>-<host>/
 ```
 
-Until a release is published, build the file from a checkout with
-`python3 tools/build_pyz.py` (it lands in `dist/`).
+To build it yourself from a checkout instead: `python3 tools/build_pyz.py`
+(it lands in `dist/`).
 
 Give it a profile describing the host so it can tell intended exposure from
 accidental exposure:
