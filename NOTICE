@@ -2,3 +2,7 @@ server-hardening-audit
 Copyright 2026 Bachamht
 
 This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes tomli 2.2.1 (https://github.com/hukkin/tomli),
+Copyright (c) 2021 Taneli Hukkinen, licensed under the MIT License.
+See server_hardening_audit/_vendor/tomli/LICENSE.
